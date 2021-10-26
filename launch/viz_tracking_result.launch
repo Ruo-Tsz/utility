@@ -1,0 +1,8 @@
+<launch>
+	<!-- imm_ukf_pda_track_node -->
+      <node pkg="utility" name="viz_tracking_result" type="viz_tracking_result.py" output="screen">
+        <!-- <param name="result_path" value="PATH_TO_ROOT_DIR_OF_RESULT/kuang-fu-rd/2020-09-11-17-31-33" /> -->
+        <param name="result_path" value="/data/itri_output/tracking_output/kuang-fu-rd/2020-09-11-17-31-33" />
+        <param name="viz_segment" value="2020-09-11-17-31-33_5" />
+    </node>
+</launch>
