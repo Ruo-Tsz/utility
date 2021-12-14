@@ -56,7 +56,9 @@ tracks:[
         ]
     },
     ...
-]           
+]
+
+id and each track need to be ordered accordingly
 '''
 
 
@@ -95,7 +97,7 @@ for f in gt_data['frames']:
     # print(f)  
     frame_id_ = gt_data['frames'][f]['header']['frame_id']
     for obj in gt_data['frames'][f]['objects']:
-        id = obj['tracking_id']
+        id = int(obj['tracking_id'])
 
         if object_dict.get(id) == None:
             object_dict[id] = [obj]
@@ -131,10 +133,15 @@ for obj_id, trajectory in object_dict.items():
     
     object_output['tracks'].append(obj)
 
-print(object_dict.keys())
+# print(object_dict.keys())
+
+# order trajectory of each tracker by timestamp
+for obj in object_output['tracks']:
+    tra_list = obj['track']
+    orderedtra = sorted(tra_list, key = lambda i: (i['header']['stamp']['secs']*pow(10, 9)+i['header']['stamp']['nsecs']))
+    obj['track'] = orderedtra
 
 assert len(object_dict.keys()) == len(object_output['tracks'])
-
 
 
 output_path = os.path.join(output_dir, output_file + '.yaml')
