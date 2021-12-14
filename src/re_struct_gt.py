@@ -80,8 +80,6 @@ segment = 14
 input_file = '2020-09-11-17-31-33_'+str(segment)+'_ImmResult'
 output_file = '2020-09-11-17-31-33_'+str(segment)+'_reConfig'
 
-# with open("/home/ee904/catkin_ws_itri/annotation/2020-09-11-17-15-15_test.yaml", "r") as gt:
-#     data = yaml.load(gt)
 
 data_path = os.path.join(input_dir, input_file + '.json')
 with open(data_path, 'r') as f:
@@ -103,17 +101,6 @@ for f in gt_data['frames']:
             object_dict[id] = [obj]
         else:
             object_dict[id].append(obj)
-
-    # if count == 10:
-    #     # print(object_dict.keys())
-    #     print(object_dict['52'])
-    #     print(len(object_dict['52']))
-    #     exit(0)
-    # count = count + 1
-
-
-# print(object_dict['1252'])
-# print(len(object_dict['1252']))
 
 # target output
 object_output = {}
@@ -143,14 +130,11 @@ for obj_id, trajectory in object_dict.items():
         obj['track'].append(tra)
     
     object_output['tracks'].append(obj)
-    # exit(0) 
 
 print(object_dict.keys())
 
 assert len(object_dict.keys()) == len(object_output['tracks'])
 
-# print(object_output['tracks'][0]['id'])
-# print(object_output['tracks'][0]['track'])
 
 
 output_path = os.path.join(output_dir, output_file + '.yaml')
