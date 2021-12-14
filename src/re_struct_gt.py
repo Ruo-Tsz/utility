@@ -63,6 +63,7 @@ id and each track need to be ordered accordingly
 
 
 #! /usr/bin/env python2
+from __future__ import unicode_literals
 import os
 import numpy as np
 import yaml
@@ -75,6 +76,9 @@ class MyDumper(yaml.Dumper):
     def increase_indent(self, flow=False, indentless=False):
         return super(MyDumper, self).increase_indent(flow, False)
 
+# representer that handles the unicode to str conversion:
+def my_unicode_repr(self, data):
+    return self.represent_str(data.encode('utf-8'))
 
 input_dir = '/home/ee904/catkin_ws_itri/annotation/livox_gt/unprocessed'
 output_dir = '/home/ee904/catkin_ws_itri/annotation/livox_gt/processing'
@@ -144,6 +148,7 @@ for obj in object_output['tracks']:
 assert len(object_dict.keys()) == len(object_output['tracks'])
 
 
+yaml.representer.Representer.add_representer(unicode, my_unicode_repr)
 output_path = os.path.join(output_dir, output_file + '.yaml')
 with open(output_path, 'w') as file:
     documents = yaml.dump(object_output, file, Dumper=MyDumper, default_flow_style=False)
