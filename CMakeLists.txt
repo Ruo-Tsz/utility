@@ -26,8 +26,6 @@ catkin_package(
 	   pcl_conversions
 	   rosbag
 	   itri_msgs
-   INCLUDE_DIRS include
-
 )
 
 
