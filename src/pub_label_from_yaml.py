@@ -49,6 +49,10 @@ def createMarkerArray(gt):
 
     for anno in gt['tracks']:
         marker = Marker()
+        if not anno.has_key('track'):
+            print(anno)
+            continue
+
         marker.header.frame_id = anno['track'][0]['header']['frame_id']
         marker.header.stamp = rospy.Time.now()
         marker.action = Marker.ADD
@@ -73,6 +77,25 @@ def createMarkerArray(gt):
         marker.scale.z = anno['track'][0]['box']['height']
         markers.markers.append(marker)
 
+        text_marker = Marker()
+        text_marker.id = anno['id']
+        text_marker.header.frame_id = anno['track'][0]['header']['frame_id']
+        text_marker.header.stamp = rospy.Time.now()
+        text_marker.action = Marker.ADD
+        text_marker.ns = 'region_id'
+        text_marker.type = Marker.TEXT_VIEW_FACING
+        text_marker.lifetime = rospy.Duration(0.1)
+        text_marker.color.a = 0.5
+        text_marker.color.r = 0
+        text_marker.color.g = 1
+        text_marker.color.b = 0
+        text_marker.pose = marker.pose
+        text_marker.text = str(anno['id'])
+        text_marker.scale.x = 8
+        text_marker.scale.y = 8
+        text_marker.scale.z = 8
+        markers.markers.append(text_marker)
+
     return markers
 
 
@@ -83,8 +106,8 @@ if __name__ == "__main__":
     file_path = "/data/annotation/environment_37.yaml"
     gt = load_gt(file_path)
 
-    print(type(gt['tracks']))
-    print(gt['tracks'])
+    # print(type(gt['tracks']))
+    # print(gt['tracks'])
 
     gt_markers = createMarkerArray(gt)
 
