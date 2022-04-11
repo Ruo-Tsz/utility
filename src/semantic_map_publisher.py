@@ -14,10 +14,10 @@ import numpy as np
 from std_msgs.msg import Header
 
 # semantic jsons location
-map_path = '/data/annotation/map/hsinchu_guandfuroad'
+map_path = '/data/annotation/map/hsinchu_guandfuroad/new'
 
 # submap viz setting
-map_types = ['roadlines', 'pedestrian_crossing', 'curbs', 'no_temperate_parking_zone', 'parking_space', 'roadmarkers']
+map_types = ['roadlines', 'pedestrian_crossing', 'curbs', 'no_temperate_parking_zone', 'parking_space', 'roadmarkers', 'non_accessible']
 # showing if the pts in each map is enclosed polygons or open segments
 map_enclose_types = {
     'roadlines': False, 
@@ -25,14 +25,16 @@ map_enclose_types = {
     'curbs': False,
     'no_temperate_parking_zone': True,
     'parking_space': True,
-    'roadmarkers': True}
+    'roadmarkers': True,
+    'non_accessible': False}
 map_colors = {
     'roadlines': [0.7, 0, 0.7], 
     'pedestrian_crossing': [0, 0, 1],
     'curbs': [0, 1, 0], 
     'no_temperate_parking_zone': [1, 0, 0],
     'parking_space': [1, 1, 0],
-    'roadmarkers': [0.7, 0.7, 1]}
+    'roadmarkers': [0.7, 0.7, 1],
+    'non_accessible': [0, 1, 1]}
 
 map_dict = {}
 rl_markers = MarkerArray()
@@ -42,16 +44,18 @@ def load_map(result_file):
     global map_dict
 
     for sub_map_name in map_types:
-        with open (os.path.join(result_file, sub_map_name+'.json'), mode='r') as f:
-            map_dict[sub_map_name] = json.load(f)[sub_map_name]
-        
-        print('submap: {}, len: {}'.format(sub_map_name, len(map_dict[sub_map_name])))
+        try:
+            with open (os.path.join(result_file, sub_map_name+'.json'), mode='r') as f:
+                map_dict[sub_map_name] = json.load(f)[sub_map_name]
+            print('submap: {}, len: {}'.format(sub_map_name, len(map_dict[sub_map_name])))
+        except Exception as error: 
+            print(error)
 
 
 def viz_roadpolys(pub, sub_map_name):
     global rl_markers
 
-    for index, road_poly in enumerate(map_dict[sub_map_name]):
+    for poly_idx, road_poly in enumerate(map_dict[sub_map_name]):
         marker = Marker()
         marker.header.frame_id = 'map'
         marker.header.stamp = rospy.Time.now()
@@ -67,7 +71,7 @@ def viz_roadpolys(pub, sub_map_name):
         marker.scale.x = 0.1
 
         marker.points = []
-        marker.id = road_poly.get('id', index) 
+        marker.id = road_poly.get('id', poly_idx) 
 
         pts = road_poly['points']
         for index, pt in enumerate(pts):
