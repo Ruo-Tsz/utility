@@ -12,9 +12,11 @@ import sensor_msgs.point_cloud2 as pcl2
 from sensor_msgs.msg import PointCloud2, PointField
 import numpy as np
 from std_msgs.msg import Header
+import copy
 
 # semantic jsons location
 map_path = '/data/annotation/map/hsinchu_guandfuroad/new'
+output = False
 
 # submap viz setting
 map_types = ['roadlines', 'pedestrian_crossing', 'curbs', 'no_temperate_parking_zone', 'parking_space', 'roadmarkers', 'non_accessible']
@@ -294,6 +296,63 @@ def extendSeg():
         pt_node['z'] = last_pt[2]
         pts.append(pt_node)
 
+
+def outputRegion():
+    non_accessible_region = {'non_accessible_region': copy.deepcopy(map_dict['non_accessible'])}
+    for poly_idx, road_poly in enumerate(non_accessible_region['non_accessible_region']):
+        pts = road_poly['points']
+
+        start_pt =  np.array([pts[0]['x'], pts[0]['y'], pts[0]['z']])
+        end_pt = np.array([pts[-1]['x'], pts[-1]['y'], pts[-1]['z']])
+        # already closed polygon, skip
+        if start_pt[0] == end_pt[0] and start_pt[1] == end_pt[1] and start_pt[2] == end_pt[2]:
+            continue
+        
+        # enclose extended region
+        pts.append(pts[0])
+
+    # cal seg spanning of raw data (pt_id != negative)
+    for poly_idx, road_poly in enumerate(non_accessible_region['non_accessible_region']):
+        pts = road_poly['points']
+
+        start_pt =  np.array([pts[0]['x'], pts[0]['y'], pts[0]['z']])
+        end_pt = np.array([pts[-1]['x'], pts[-1]['y'], pts[-1]['z']])
+            
+        # exclude extended pt with negative id
+        for pt in pts: 
+            if pt['point_id'] > 0:
+                start_pt = np.array([pt['x'], pt['y'], pt['z']])
+                break
+        
+        for idx in range(len(pts)-1, -1, -1): 
+            if pts[idx]['point_id'] > 0:
+                end_pt = np.array([pts[idx]['x'], pts[idx]['y'], pts[idx]['z']])
+                break
+
+        # original enclosed ones, get half as span
+        if start_pt[0] == end_pt[0] and start_pt[1] == end_pt[1] and start_pt[2] == end_pt[2]:
+            half_idx = int(len(pts)/2)
+            start_pt =  np.array([pts[half_idx]['x'], pts[half_idx]['y'], pts[half_idx]['z']])
+            
+        road_poly['spanning_length'] = np.linalg.norm(end_pt-start_pt)
+
+        # cal region center as middle of spanning
+        # center = np.zeros((3,))
+        # for pt in pts:
+        #     center[0] += pt['x']
+        #     center[1] += pt['y']
+        #     center[2] += pt['z']
+        # center /= len(pts)
+        # road_poly['center_point'] = {'x': center[0], 'y': center[1], 'z':center[2]}
+
+        center = (end_pt+start_pt)/2
+        road_poly['center_point'] = {'x': center[0], 'y': center[1], 'z':center[2]}
+    
+    with open(os.path.join(map_path, 'non_accessible_region.json'), 'w') as outFile:
+        json.dump(non_accessible_region, outFile, indent=4)
+    print('Output to ', os.path.join(map_path, 'non_accessible_region.json'))
+
+
 if __name__ == "__main__":    
     rospy.init_node("pub_map_node", anonymous=True)
     mPubRoadlines = rospy.Publisher('roadlines', MarkerArray, queue_size=100)
@@ -307,6 +366,10 @@ if __name__ == "__main__":
     
     mPubRoadlines.publish(rl_markers)
     print('a', len(rl_markers.markers))
+
+    non_accessible_region = {'non_accessible_region': map_dict['non_accessible']}
+    if output:
+        outputRegion()
 
     rate = rospy.Rate(10) 
     while not rospy.is_shutdown():
