@@ -74,14 +74,87 @@ def viz_roadpolys(pub, sub_map_name):
         marker.points = []
         marker.id = road_poly.get('id', poly_idx) 
 
+        # check extend pt
+        pt_marker = Marker()
+        pt_marker.header.frame_id = 'map'
+        pt_marker.header.stamp = rospy.Time.now()
+        pt_marker.action = Marker.ADD
+        pt_marker.ns = sub_map_name + '_pt'
+        pt_marker.type = Marker.POINTS
+        pt_marker.lifetime = rospy.Duration(0.1)
+
+        pt_marker.color.r = 1
+        pt_marker.color.g = 1
+        pt_marker.color.b = 0
+        pt_marker.color.a = 1
+        pt_marker.scale.x = 0.5
+        pt_marker.scale.y = 0.5
+
+        pt_marker.points = []
+        pt_marker.id = road_poly.get('id', poly_idx) 
+        
+        id_marker = Marker()
+        id_marker.header.frame_id = 'map'
+        id_marker.header.stamp = rospy.Time.now()
+        id_marker.action = Marker.ADD
+        id_marker.ns = sub_map_name + '_id'
+        id_marker.type = Marker.TEXT_VIEW_FACING
+        id_marker.lifetime = rospy.Duration(0.1) 
+
+        id_marker.color.r = 1
+        id_marker.color.g = 1
+        id_marker.color.b = 0
+        id_marker.color.a = 1
+        id_marker.scale.z = 5
+
+        id_marker.id = road_poly.get('main_id', poly_idx)
+        id_marker.text = str(road_poly.get('main_id', poly_idx)) 
+        id_marker.pose.position.x = road_poly['points'][0]['x']
+        id_marker.pose.position.y = road_poly['points'][0]['y']
+        id_marker.pose.position.z = elevation
+
+        extend_marker = Marker()
+        extend_marker.header.frame_id = 'map'
+        extend_marker.header.stamp = rospy.Time.now()
+        extend_marker.action = Marker.ADD
+        extend_marker.ns = sub_map_name + '_line'
+        extend_marker.type = Marker.LINE_LIST
+        extend_marker.lifetime = rospy.Duration(0.1)
+
+        extend_marker.color.r = 1
+        extend_marker.color.g = 1
+        extend_marker.color.b = 0
+        extend_marker.color.a = 1
+        extend_marker.scale.x = 0.1
+
+        extend_marker.points = []
+        extend_marker.id = road_poly.get('id', poly_idx) 
+        
+
         pts = road_poly['points']
         for index, pt in enumerate(pts):
+             # check extend pt in non-accessible
+            if pt.has_key('point_id') and pt['point_id'] == -1:
+                pt_marker.points.append(Point(pt['x'], pt['y'], elevation))
+
+                if index == 0:
+                    extend_marker.points.append(Point(pts[index%len(pts)]['x'], pts[index%len(pts)]['y'], elevation))
+                    extend_marker.points.append(Point(pts[(index+1)%len(pts)]['x'], pts[(index+1)%len(pts)]['y'], elevation))
+                else:
+                    extend_marker.points.append(Point(pts[index%len(pts)]['x'], pts[index%len(pts)]['y'], elevation))
+                    extend_marker.points.append(Point(pts[(index-1)%len(pts)]['x'], pts[(index-1)%len(pts)]['y'], elevation))        
+            
             # don't enclose polygon btw first and last pts
             if (not map_enclose_types[sub_map_name]) and index == len(pts)-1 and (sub_map_name != 'non_accessible'):
                 break
-            marker.points.append(Point(pts[index%len(pts)]['x'], pts[index%len(pts)]['y'], pts[index%len(pts)]['z']))
-            marker.points.append(Point(pts[(index+1)%len(pts)]['x'], pts[(index+1)%len(pts)]['y'], pts[(index+1)%len(pts)]['z']))
+            marker.points.append(Point(pts[index%len(pts)]['x'], pts[index%len(pts)]['y'], elevation))
+            marker.points.append(Point(pts[(index+1)%len(pts)]['x'], pts[(index+1)%len(pts)]['y'], elevation))
         rl_markers.markers.append(marker)
+        rl_markers.markers.append(pt_marker)
+        if sub_map_name == 'non_accessible':
+            rl_markers.markers.append(id_marker)
+            rl_markers.markers.append(extend_marker)
+
             
     # pub.publish(rl_markers)
 
