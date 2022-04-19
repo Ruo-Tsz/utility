@@ -388,7 +388,7 @@ def config_data(gts, dets, output_path):
         for obj in f['objects']:
             o = {'track':{}, 'id': int(obj['tracking_id'])}
 
-            box_dict = {'lentgh': obj['size']['l'], 'width': obj['size']['w'], 'height': obj['size']['h']}
+            box_dict = {'length': obj['size']['l'], 'width': obj['size']['w'], 'height': obj['size']['h']}
             header_dict = {'frame_id': f['header']['frame_id'], 'stamp': f['header']['stamp']}
             o['track'] = {
                 'box': box_dict, 
