@@ -6,6 +6,7 @@ import numpy as np
 import collections
 from scipy.optimize import linear_sum_assignment
 from timeit import default_timer as timer
+from datetime import datetime
 
 '''
     Take https://github.com/cheind/py-motmetrics for reference
@@ -331,6 +332,17 @@ class MOTAccumulator(object):
             print('motp: {:.3f}'.format(motp))
 
 
+def filecreation(file_dir):
+    mydir = os.path.join(
+        file_dir, 
+        datetime.now().strftime('%Y-%m-%d_%H-%M-%S'))
+    try:
+        os.makedirs(mydir)
+    except OSError as e:
+        if e.errno != errno.EEXIST:
+            raise  # This was not a "directory exist" error..
+    return mydir
+
 def load_gt(file_path):
     with open(file_path, "r") as gt:
         data = yaml.load(gt)
@@ -472,10 +484,11 @@ if __name__ == "__main__":
     gt_path = "/data/annotation/livox_gt/done/2020-09-11-17-37-12_4_reConfig_done.yaml"
     gts = load_gt(gt_path)
 
-    det_path = "/data/itri_output/tracking_output/output/livox_gt_annotate_velodyne/2020-09-11-17-37-12/2020-09-11-17-37-12_4_ImmResult.json"
+    det_path = "/data/itri_output/tracking_output/output/clustering/2020-09-11-17-37-12_4_ImmResult.json"
     dets = load_det(det_path)
 
-    output_path = "/data/itri_output/evaluation"
+    output_dir = "/data/itri_output/tracking_output/output/clustering"
+    output_path = filecreation(output_dir)
     
     start = timer()
     gt_frame, det_frame = config_data(gts, dets, output_path)
