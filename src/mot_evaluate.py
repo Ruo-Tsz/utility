@@ -4,9 +4,10 @@ import json
 import os
 import numpy as np
 import collections
-from scipy.optimize import linear_sum_assignment
+# from scipy.optimize import linear_sum_assignment
 from timeit import default_timer as timer
 from datetime import datetime
+from motmetrics.lap import linear_sum_assignment
 
 '''
     Take https://github.com/cheind/py-motmetrics for reference
@@ -104,6 +105,9 @@ class MOTAccumulator(object):
                                 float(det['track']['translation']['z'])])
                     dist_m[i, j] = euc_dist(g, d)
 
+                    if dist_m[i, j] > self.dist_thr:
+                        dist_m[i, j] = np.nan
+
             # result = linear_assignment(cost)
             result = linear_sum_assignment(dist_m)
             # get n*2 of index [i, j] array
@@ -112,7 +116,7 @@ class MOTAccumulator(object):
             valid_result = []
             for pair in result:
                 # (2, )
-                if dist_m[pair[0], pair[1]] < self.dist_thr:
+                if np.isfinite(dist_m[pair[0], pair[1]]):
                     valid_result.append(pair)
             valid_result = np.reshape(valid_result, (-1, 2))
 
