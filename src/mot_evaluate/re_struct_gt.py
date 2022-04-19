@@ -80,11 +80,12 @@ class MyDumper(yaml.Dumper):
 def my_unicode_repr(self, data):
     return self.represent_str(data.encode('utf-8'))
 
-input_dir = '/home/ee904/catkin_ws_itri/annotation/livox_gt/unprocessed'
-output_dir = '/home/ee904/catkin_ws_itri/annotation/livox_gt/processing'
-segment = 14
-input_file = '2020-09-11-17-31-33_'+str(segment)+'_ImmResult'
-output_file = '2020-09-11-17-31-33_'+str(segment)+'_reConfig'
+
+input_dir = '/data/itri_output/tracking_output/output/unprocessed/2020-09-11-17-37-12'
+output_dir = '/data/annotation/livox_gt/processing/2020-09-11-17-37-12'
+segment = 3
+input_file = '2020-09-11-17-37-12_'+str(segment)+'_ImmResult'
+output_file = '2020-09-11-17-37-12_'+str(segment)+'_reConfig'
 
 
 data_path = os.path.join(input_dir, input_file + '.json')
