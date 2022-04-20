@@ -67,7 +67,8 @@ class MOTAccumulator(object):
     def evaluate(self):
         # mxn matrix -> track# * det#
         # iterate all frame in gt, only evaluate by gt frame
-        for t, current_gts in self.gt.items():
+        for t in sorted(self.gt):
+            current_gts = self.gt[t]
             self.gt_num += len(current_gts)
 
             # 1. missing frame in det
@@ -415,21 +416,15 @@ def config_data(gts, dets, output_path):
                 'header': header_dict}
             det_data[t_step].append(o)
 
-
-    # ordered_gt = collections.OrderedDict(sorted(gt_data.items()))
-    # ordered_det = collections.OrderedDict(sorted(det_data.items()))
-    # order by timestemp
-    ordered_gt = {k: gt_data[k] for k in sorted(gt_data)}
-    ordered_det = {k: det_data[k] for k in sorted(det_data)}
-    print('gt: {}'.format(len(ordered_gt.keys())))
-    print('det: {}'.format(len(ordered_det.keys())))
+    print('gt: {}'.format(len(gt_data.keys())))
+    print('det: {}'.format(len(det_data.keys())))
 
     with open(os.path.join(output_path, "gt.json"), "w") as outfile:
-        json.dump(ordered_gt, outfile, indent = 4)
+        json.dump(gt_data, outfile, indent = 4)
     with open(os.path.join(output_path, "det.json"), "w") as outfile:
-        json.dump(ordered_det, outfile, indent = 4)
+        json.dump(det_data, outfile, indent = 4)
 
-    return ordered_gt, ordered_det
+    return gt_data, det_data
 
 
 
