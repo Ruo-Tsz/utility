@@ -45,6 +45,8 @@ class MOTAccumulator(object):
         self.id_history = {}
         # only trackers with id_switch and correspondent det id {{'o1':{"history":[], 'switch_num': }, {o2}, {}}
         self.track_id_switch = {}
+        # trackers fragmentation # {'o1': , 'o2': , ...}
+        self.track_frag = {}
         
         
         # record hyp frame and # with no gt
@@ -207,6 +209,7 @@ class MOTAccumulator(object):
         IDP = 0
         IDR = 0
         IDF1 = 0
+        Frag = 0
         
         TP = sum(self.tp.values())
         FP = sum(self.fp.values())
@@ -229,6 +232,33 @@ class MOTAccumulator(object):
             for e in np.array(self.dist_error[gid])[matched_idx]:
                 total_error += e 
             total_matched += len(matched_idx)
+
+            # Frag
+            # Total number of switches from tracked to not tracked
+            # Find first and last time object was not missed (track span). Then count
+            # the number switches from NOT MISS to MISS state.
+            frag = 0
+            first_track = 0
+            last_track = len(his)
+            flag = False
+            for idx, tracked in enumerate(his):
+                if tracked:
+                    first_track = idx
+                    break
+            
+            for idx, tracked in reversed(list(enumerate(his))):
+                if tracked:
+                    last_track = idx
+                    break
+
+            for i in range(first_track, last_track):
+                if not his[i] and not flag:
+                    frag += 1
+                    flag = True
+                elif his[i]:
+                    flag = False
+            self.track_frag[gid] = frag
+            Frag += frag
 
             # MT, ML
             if len(matched_idx)/len(his) >= 0.8:
@@ -282,6 +312,7 @@ class MOTAccumulator(object):
             'MT': MT/self.trajectory_num,
             'ML': ML/self.trajectory_num,
             'IDSW': self.id_switch, 
+            'Frag': Frag,
             'TP': TP,
             'FP': FP,
             'FN': FN,
@@ -317,6 +348,9 @@ class MOTAccumulator(object):
         with open(os.path.join(self.output_path, "switch_list.json"), "w") as outfile:
             json.dump(switch_list, outfile, indent = 4)
 
+        with open(os.path.join(self.output_path, "frag.json"), "w") as outfile:
+            json.dump(self.track_frag, outfile, indent = 4)
+
         if self.verbose:
             print('##################################################')
             print('Output to {}'.format(self.output_path))
@@ -333,6 +367,7 @@ class MOTAccumulator(object):
             print('MT: {:.3f}'.format(MT/self.trajectory_num))
             print('ML: {:.3f}'.format(ML/self.trajectory_num))
             print('IDSW: {}'.format(self.id_switch))
+            print('Frag: {}'.format(Frag))
             print('recall: {:.3f}'.format(recall))
             print('precision: {:.3f}'.format(precision))
             print('F1-score: {:.3f}'.format(F1))
