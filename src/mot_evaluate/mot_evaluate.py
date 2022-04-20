@@ -306,9 +306,13 @@ class MOTAccumulator(object):
         track_id_switch = self.track_id_switch
         switch_list = {}
         for id, switch_num in self.track_id_switch.items():
+            history = {}
+            for idx, frame in enumerate(self.gt_frame[id]):
+                history[frame] = self.id_history[id][idx]
             switch_list[id] = {
                 'switch_num': switch_num,
-                'history': self.id_history[id]}
+                'history': history,
+                'sequence': self.id_history[id]}
 
         with open(os.path.join(self.output_path, "switch_list.json"), "w") as outfile:
             json.dump(switch_list, outfile, indent = 4)
