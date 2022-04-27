@@ -1,0 +1,13 @@
+<launch>
+	<!-- mot_viz_compare node -->
+      <node pkg="utility" name="mot_viz_compare" type="mot_viz_compare.py" output="screen">
+	    <param name="/use_sim_time" value="false" />
+        <!-- <param name="result_path" value="/data/itri_output/tracking_output/output/clustering/merge_detector/v2/2022-04-27_22-10-38_3m" /> -->
+        <param name="result_path" value="'/data/itri_output/tracking_output/output/clustering/livox_baseline" />
+        <param name="viz_segment" value="2020-09-11-17-37-12_4" />
+        <param name="play_rate" value="5" />
+    </node>
+	
+    <!-- rviz -->
+    <node type="rviz" name="rviz" pkg="rviz" output="screen" args="-d $(find utility)/configure/kuang-fu-gt-compare.rviz" />
+</launch>
