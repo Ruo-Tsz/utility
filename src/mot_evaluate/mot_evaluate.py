@@ -8,14 +8,50 @@ import collections
 from timeit import default_timer as timer
 from datetime import datetime
 from motmetrics.lap import linear_sum_assignment
+import shapely
+from shapely import geometry, affinity
 
 '''
     Take https://github.com/cheind/py-motmetrics for reference
 '''
 
 
+def getYawFromQuat(obj):
+    return euler_from_quaternion([obj['rotation']['x'], obj['rotation']['y'],
+            obj['rotation']['z'], obj['rotation']['w']])[2]
+
+def iou_dist(obj1, obj2):
+    yaw_1 = getYawFromQuat(obj1['track'])
+    yaw_2 = getYawFromQuat(obj2['track'])
+    
+    rect_1 = RotatedRect(obj1['track']['translation']['x'], obj1['track']['translation']['y'],  obj1['track']['box']['length'], obj1['track']['box']['width'], yaw_1)
+    rect_2 = RotatedRect(obj2['track']['translation']['x'], obj2['track']['translation']['y'],  obj2['track']['box']['length'], obj2['track']['box']['width'], yaw_2)
+    
+    inter_area = rect_1.intersection(rect_2).area
+    iou = inter_area / (rect_1.get_contour().area + rect_2.get_contour().area - inter_area)
+    return iou
+
 def euc_dist(obj1, obj2):
     return np.sqrt(np.sum((obj1-obj2)**2))
+
+class RotatedRect:
+    def __init__(self, cx, cy, w, h, angle):
+        self.cx = cx
+        self.cy = cy
+        self.w = w
+        self.h = h
+        self.angle = angle
+
+    def get_contour(self):
+        w = self.w
+        h = self.h
+        c = shapely.geometry.box(-w/2.0, -h/2.0, w/2.0, h/2.0)
+        rc = shapely.affinity.rotate(c, self.angle)
+        return shapely.affinity.translate(rc, self.cx, self.cy)
+
+    def intersection(self, other):
+        return self.get_contour().intersection(other.get_contour())
+
 
 class MOTAccumulator(object):
     # def __init__(self, auto_id=False, max_switch_time=float('inf')):
@@ -97,7 +133,8 @@ class MOTAccumulator(object):
             gids = [gt['id'] for gt in current_gts]
             hids = [hyp['id'] for hyp in self.hyp[t]]
             
-            dist_m = np.matrix(np.ones((len(self.gt[t]), len(self.hyp[t]))) * 1000)
+            dist_m = np.array(np.ones((len(self.gt[t]), len(self.hyp[t]))) * 1000)
+            dist_iou = np.array(np.ones((len(self.gt[t]), len(self.hyp[t]))) * -1)
             for i, gt in enumerate(current_gts):
                 g = np.array([float(gt['track']['translation']['x']),
                             float(gt['track']['translation']['y']),
@@ -106,6 +143,8 @@ class MOTAccumulator(object):
                     d = np.array([float(det['track']['translation']['x']),
                                 float(det['track']['translation']['y']),
                                 float(det['track']['translation']['z'])])
+
+                    dist_iou[i, j] = iou_dist(gt, det)
                     dist_m[i, j] = euc_dist(g, d)
 
                     if dist_m[i, j] > self.dist_thr:
