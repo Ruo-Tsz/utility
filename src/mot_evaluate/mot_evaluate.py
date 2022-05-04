@@ -83,6 +83,8 @@ class MOTAccumulator(object):
         self.track_id_switch = {}
         # trackers fragmentation # {'o1': , 'o2': , ...}
         self.track_frag = {}
+        # tracker with over-seg problem {'o1':[{'det':[{det1}, {det2}], 'timestamp':t1}, {'det':[], 'timestamp':t2}, ], 'o2':[], ..}
+        self.track_over_seg = {}
         
         
         # record hyp frame and # with no gt
@@ -101,6 +103,28 @@ class MOTAccumulator(object):
         self.gt_frame[gid] = [timestamp]
         self.id_history[gid] = [np.nan]
         self.last_match[gid] = np.nan
+
+    def over_segmentation(self, timestamp, dist_iou):
+        mask_overlap = (dist_iou > 0)
+        gt_overlap = np.sum(mask_overlap, axis=1)
+        over_gt_idx = np.array(zip(*(np.where(gt_overlap>1)))).flatten()
+        for gt_idx in over_gt_idx:
+            o = self.gt[timestamp][gt_idx]['id']
+
+            if not self.track_over_seg.has_key(o):
+                self.track_over_seg[o] = []
+                
+            record = {}
+            record['timestamp'] = timestamp
+            record['det'] = []
+            
+            over_det_idx = np.where(mask_overlap[gt_idx]==True)
+            over_det_idx = np.array(zip(*over_det_idx)).flatten()
+            for det_idx in over_det_idx:
+                det = self.hyp[timestamp][det_idx]
+                record['det'].append(det)
+
+            self.track_over_seg[o].append(record)
 
     def evaluate(self):
         # mxn matrix -> track# * det#
@@ -150,7 +174,8 @@ class MOTAccumulator(object):
                     if dist_m[i, j] > self.dist_thr:
                         dist_m[i, j] = np.nan
 
-            # result = linear_assignment(cost)
+            self.over_segmentation(t, dist_iou)
+
             result = linear_sum_assignment(dist_m)
             # get n*2 of index [i, j] array
             result = np.array(list(zip(*result)))
@@ -249,6 +274,7 @@ class MOTAccumulator(object):
         IDR = 0
         IDF1 = 0
         Frag = 0
+        over_seg = 0
         
         TP = sum(self.tp.values())
         FP = sum(self.fp.values())
@@ -340,6 +366,9 @@ class MOTAccumulator(object):
 
         num_frame_wo_gt = len(self.redunt_hyp.keys())
 
+        for gid, record in self.track_over_seg.items():
+            over_seg += len(record)
+
         # Data to be written 
         result ={ 
             'mota': mota, 
@@ -352,6 +381,7 @@ class MOTAccumulator(object):
             'ML': ML/self.trajectory_num,
             'IDSW': self.id_switch, 
             'Frag': Frag,
+            'over-seg': over_seg,
             'TP': TP,
             'FP': FP,
             'FN': FN,
@@ -390,6 +420,9 @@ class MOTAccumulator(object):
         with open(os.path.join(self.output_path, "frag.json"), "w") as outfile:
             json.dump(self.track_frag, outfile, indent = 4)
 
+        with open(os.path.join(self.output_path, "over_seg.json"), "w") as outfile:
+            json.dump(self.track_over_seg, outfile, indent = 4)
+
         if self.verbose:
             print('##################################################')
             print('Output to {}'.format(self.output_path))
@@ -407,6 +440,7 @@ class MOTAccumulator(object):
             print('ML: {:.3f}'.format(ML/self.trajectory_num))
             print('IDSW: {}'.format(self.id_switch))
             print('Frag: {}'.format(Frag))
+            print('over-seg: {}'.format(over_seg))
             print('recall: {:.3f}'.format(recall))
             print('precision: {:.3f}'.format(precision))
             print('F1-score: {:.3f}'.format(F1))
