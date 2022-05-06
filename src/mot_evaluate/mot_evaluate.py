@@ -46,7 +46,7 @@ class RotatedRect:
         w = self.w
         h = self.h
         c = shapely.geometry.box(-w/2.0, -h/2.0, w/2.0, h/2.0)
-        rc = shapely.affinity.rotate(c, self.angle)
+        rc = shapely.affinity.rotate(c, self.angle, use_radians=True)
         return shapely.affinity.translate(rc, self.cx, self.cy)
 
     def intersection(self, other):
