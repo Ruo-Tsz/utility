@@ -79,9 +79,11 @@ class MOTAccumulator(object):
         self.dist_error = {}
         # record tracker matched id, nan for not matched, for MT/ML, {'o1':[id1,id2,nan,..], 'o2':[]}
         self.id_history = {}
+        # lifetime stamped switch condition (correspondent to gt_frame) {'o1':{t1: False, t2: F, T..}, 'o2':{}}
+        self.switch = {}
         # only trackers with id_switch and correspondent det id {{'o1':{"history":[], 'switch_num': }, {o2}, {}}
         self.track_id_switch = {}
-        # trackers fragmentation # {'o1': , 'o2': , ...}
+        # All trackers fragmentation # {'o1': {'num': 30, 'happened_time': [t1, t2...]}, 'o2': , ...}
         self.track_frag = {}
         # tracker with over-seg problem {'o1':[{'det':[{det1}, {det2}], 'timestamp':t1}, {'det':[], 'timestamp':t2}, ], 'o2':[], ..}
         self.track_over_seg = {}
@@ -103,6 +105,7 @@ class MOTAccumulator(object):
         self.gt_frame[gid] = [timestamp]
         self.id_history[gid] = [np.nan]
         self.last_match[gid] = np.nan
+        self.switch[gid] = {timestamp: False}
 
     def over_segmentation(self, timestamp, dist_iou):
         mask_overlap = (dist_iou > 0)
@@ -148,6 +151,7 @@ class MOTAccumulator(object):
                         self.dist_error[o_id].append(np.inf)
                         self.gt_frame[o_id].append(t)
                         self.id_history[o_id].append(np.nan)
+                        self.switch[o_id].update({t: False})
                     # not establish before, initialize one
                     else:
                         self.register_new_track(t, o_id)
@@ -210,12 +214,20 @@ class MOTAccumulator(object):
                     self.dist_error[o].append(dist_m[i, j])
                     self.gt_frame[o].append(t)
                     self.id_history[o].append(h)
+                    if id_switch:
+                        self.switch[o].update({t: True})
+                    else:
+                        self.switch[o].update({t: False})
                 else:
                     self.last_match[o] = h
                     self.track_history[o] = [True]
                     self.dist_error[o] = [dist_m[i, j]]
                     self.gt_frame[o] = [t]
                     self.id_history[o] = [h]
+                    if id_switch:
+                        self.switch[o] = {t: True}
+                    else:
+                        self.switch[o] = {t: False}
 
             # set tp
             self.tp[t] = valid_result.shape[0]
@@ -244,6 +256,7 @@ class MOTAccumulator(object):
                     self.dist_error[o_id].append(np.inf)
                     self.gt_frame[o_id].append(t)
                     self.id_history[o_id].append(np.nan)
+                    self.switch[o_id].update({t: False})
                 # not establish before
                 else:
                     self.register_new_track(t, o_id)
@@ -291,6 +304,7 @@ class MOTAccumulator(object):
             assert len(self.gt_frame[gid]) == len(his), 'gt_frame is not equal to track_history'
             assert len(self.gt_frame[gid]) == len(self.dist_error[gid]), 'gt_frame is not equal to dist_error'
             assert len(self.gt_frame[gid]) == len(self.id_history[gid]), 'gt_frame is not equal to id_history'
+            assert len(self.gt_frame[gid]) == len(self.switch[gid]), 'gt_frame is not equal to switch'
 
             matched_idx = np.where(np.array(his)==True)
             matched_idx = list(np.array(list(zip(*matched_idx))).flatten())
@@ -316,13 +330,16 @@ class MOTAccumulator(object):
                     last_track = idx
                     break
 
-            for i in range(first_track, last_track):
-                if not his[i] and not flag:
-                    frag += 1
-                    flag = True
-                elif his[i]:
-                    flag = False
-            self.track_frag[gid] = frag
+            frag_lost_happened_t=[]
+            if not(first_track == -1 and last_track == len(his)):
+                for i in range(first_track, last_track):
+                    if not his[i] and not counted_flag:
+                        frag += 1
+                        frag_lost_happened_t.append(self.gt_frame[gid][i])
+                        counted_flag = True
+                    elif his[i]:
+                        counted_flag = False
+            self.track_frag[gid] = {'frag_num': frag, 'happened': frag_lost_happened_t}
             Frag += frag
 
             # MT, ML
@@ -412,7 +429,17 @@ class MOTAccumulator(object):
             switch_list[id] = {
                 'switch_num': switch_num,
                 'history': history,
-                'sequence': self.id_history[id]}
+                'sequence': self.id_history[id],
+                'happened': self.switch[id]}
+
+        stamped_id_history = {}
+        for gt_id in self.gt_frame.keys():
+            id_history = {}
+            tracked_history= {}
+            for idx, f in enumerate(self.gt_frame[gt_id]):
+                id_history[f] = self.id_history[gt_id][idx]
+                tracked_history[f] = self.track_history[gt_id][idx]
+            stamped_id_history[gt_id] = {'id': id_history, 'matched': tracked_history}
 
         with open(os.path.join(self.output_path, "switch_list.json"), "w") as outfile:
             json.dump(switch_list, outfile, indent = 4)
@@ -423,30 +450,9 @@ class MOTAccumulator(object):
         with open(os.path.join(self.output_path, "over_seg.json"), "w") as outfile:
             json.dump(self.track_over_seg, outfile, indent = 4)
 
-        if self.verbose:
-            print('##################################################')
-            print('Output to {}'.format(self.output_path))
-            print('We have {} frames'.format(self.frame_num))
-            print('gt: {}'.format(self.gt_num))
-            print('trajectory: {}'.format(self.trajectory_num))
-            print('lost_trajectory: {}'.format(lost_trajectory))
-            print('det: {}'.format(self.hyp_num))
-            print('redun hyp frame #: {}'.format(num_frame_wo_gt))
-            print('--------------------------------------------------')
-            print('TP: {}'.format(TP))
-            print('FP: {}'.format(FP))
-            print('FN: {}'.format(FN))
-            print('MT: {:.3f}'.format(MT/self.trajectory_num))
-            print('ML: {:.3f}'.format(ML/self.trajectory_num))
-            print('IDSW: {}'.format(self.id_switch))
-            print('Frag: {}'.format(Frag))
-            print('over-seg: {}'.format(over_seg))
-            print('recall: {:.3f}'.format(recall))
-            print('precision: {:.3f}'.format(precision))
-            print('F1-score: {:.3f}'.format(F1))
-            print('IDF1: {:.3f}'.format(IDF1))
-            print('mota: {:.3f}'.format(mota))
-            print('motp: {:.3f}'.format(motp))
+        with open(os.path.join(self.output_path, "tp_id_history.json"), "w") as outfile:
+            json.dump(stamped_id_history, outfile, indent = 4)
+
 
 
 def filecreation(file_dir):
