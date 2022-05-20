@@ -8,13 +8,20 @@ import collections
 from timeit import default_timer as timer
 from datetime import datetime
 from motmetrics.lap import linear_sum_assignment
+from tqdm import tqdm
+from tf.transformations import euler_from_quaternion, quaternion_from_matrix, quaternion_matrix, translation_from_matrix
 import shapely
 from shapely import geometry, affinity
 
 '''
-    Take https://github.com/cheind/py-motmetrics for reference
+    Take 
+    1. https://github.com/cheind/py-motmetrics 
+    2. https://github.com/nutonomy/nuscenes-devkit
+    for reference
 '''
 
+# 3 is more resonalble for TP, but would cause lots FT/FN and less TP compared to 5 (about 400-500 improvement)
+tp_dist_thr = 5
 
 def getYawFromQuat(obj):
     return euler_from_quaternion([obj['rotation']['x'], obj['rotation']['y'],
@@ -98,6 +105,7 @@ class MOTAccumulator(object):
         self.fn_gt = {}
 
         self.verbose = verbose
+        self.metrics = {}
 
     def register_new_track(self, timestamp, gid):
         self.track_history[gid] = [False]
@@ -269,8 +277,7 @@ class MOTAccumulator(object):
 
         self.trajectory_num = len(self.track_history.keys())
     
-
-    def outputMetric(self):
+    def cal_metrics(self):
         result = {}
         
         TP = 0
@@ -315,11 +322,11 @@ class MOTAccumulator(object):
             # Frag
             # Total number of switches from tracked to not tracked
             # Find first and last time object was not missed (track span). Then count
-            # the number switches from NOT MISS to MISS state.
+            # the number switches from Matched to MISS state.
             frag = 0
-            first_track = 0
+            first_track = -1
             last_track = len(his)
-            flag = False
+            counted_flag = False
             for idx, tracked in enumerate(his):
                 if tracked:
                     first_track = idx
@@ -407,9 +414,39 @@ class MOTAccumulator(object):
             'trajectory_num': self.trajectory_num,
             'lost_trajectory': lost_trajectory,
             'total_gt_frame_num': self.frame_num}
-              
+        
+        self.metrics = result
+
+        if self.verbose:
+            print('')
+            print('We have {} frames'.format(self.frame_num))
+            print('gt: {}'.format(self.gt_num))
+            print('trajectory: {}'.format(self.trajectory_num))
+            print('lost_trajectory: {}'.format(lost_trajectory))
+            print('det: {}'.format(self.hyp_num))
+            print('redun hyp frame #: {}'.format(num_frame_wo_gt))
+            print('------------Metrics------------')
+            print('TP: {}'.format(TP))
+            print('FP: {}'.format(FP))
+            print('FN: {}'.format(FN))
+            print('MT: {:.3f}'.format(MT/self.trajectory_num))
+            print('ML: {:.3f}'.format(ML/self.trajectory_num))
+            print('IDSW: {}'.format(self.id_switch))
+            print('Frag: {}'.format(Frag))
+            print('over-seg: {}'.format(over_seg))
+            print('recall: {:.3f}'.format(recall))
+            print('precision: {:.3f}'.format(precision))
+            print('F1-score: {:.3f}'.format(F1))
+            print('IDF1: {:.3f}'.format(IDF1))
+            print('mota: {:.3f}'.format(mota))
+            print('motp: {:.3f}'.format(motp))
+
+    def outputMetric(self):
+        if self.verbose:
+            print('Output to {}'.format(self.output_path))
+
         with open(os.path.join(self.output_path, "metrics.json"), "w") as outfile:
-            json.dump(result, outfile, indent = 4)
+            json.dump(self.metrics, outfile, indent = 4)
 
         details = {
             'fp_hypotheses': self.fp_hyp, 
@@ -458,7 +495,7 @@ class MOTAccumulator(object):
 def filecreation(file_dir):
     mydir = os.path.join(
         file_dir, 
-        datetime.now().strftime('%Y-%m-%d_%H-%M-%S'))
+        datetime.now().strftime('%Y-%m-%d_%H-%M-%S_{}m'.format(tp_dist_thr)))
     try:
         os.makedirs(mydir)
     except OSError as e:
@@ -471,10 +508,14 @@ def load_gt(file_path):
         data = yaml.load(gt)
     return data
 
-def load_det(file_path):
-    with open (os.path.join(file_path), mode='r') as f:
-        curb_map = json.load(f)['frames']
-    return curb_map
+def load_det(file_path, is_centerpoint):
+    if is_centerpoint:
+        with open (os.path.join(file_path), mode='r') as f:
+            det = json.load(f)
+    else:
+        with open (os.path.join(file_path), mode='r') as f:
+            det = json.load(f)['frames']
+    return det
 
 def config_data(gts, dets, output_path):
     '''
@@ -544,7 +585,37 @@ def config_data(gts, dets, output_path):
 
     return gt_data, det_data
 
+def reconfigure(dets):
+    # centerpoint with all global position and full timestamp in nanosecond
+    re_config_dets = {}
+    timestamps = sorted(map(int, dets['results'].keys()))
+    for t in timestamps:
+        ego_pose = dets['ego_poses'][str(t)]
+        pose = {'position': {'x': ego_pose['translation'][0], 'y': ego_pose['translation'][1], 'z': ego_pose['translation'][2]}, \
+                'rotation': {'w':  ego_pose['rotation'][3], 'x':  ego_pose['rotation'][0], 'y':  ego_pose['rotation'][1], 'z':  ego_pose['rotation'][2]}}
+        # header = {'frame_id': 'velodyne', 'stamp': {'nsecs': int(t%1e9/1e3), 'secs': int(t/1e9)}}
+        header = {'frame_id': 'velodyne', 'stamp': {'nsecs': int(str(t)[-9:][:6]), 'secs': int(t/1e9)}}
 
+        T_ego = quaternion_matrix(np.array(ego_pose['rotation']))
+        T_ego[:3, 3] = np.array(ego_pose['translation'])
+        T_ego_inv = np.linalg.inv(T_ego)
+
+        obj_lists = []
+        global_obj_lists = dets['results'][str(t)]
+        for obj in global_obj_lists:
+            T_obj = quaternion_matrix(np.array(obj['rotation']))
+            T_obj[:3, 3] = np.array(obj['translation'])
+            T_local_obj = np.dot(T_ego_inv, T_obj)
+            rot = {'w': quaternion_from_matrix(T_local_obj)[3], 'x': quaternion_from_matrix(T_local_obj)[0], 'y': quaternion_from_matrix(T_local_obj)[1], 'z': quaternion_from_matrix(T_local_obj)[2]}
+            trans = {'x': T_local_obj[0, 3], 'y': T_local_obj[1, 3], 'z': T_local_obj[2, 3]}
+            size = {'l': obj['size'][0], 'w': obj['size'][1], 'h': obj['size'][2]}
+            obj_local_dict = {'timestamp': str(int(t/1e3)), 'rotation': rot, 'translation': trans, 'size': size, 'tracking_id': obj['tracking_id'], 'tracking_name': obj['tracking_name'], 'tracking_score': obj['tracking_score']}
+            obj_lists.append(obj_local_dict)
+        single_frame = {'header': header, 'objects': obj_lists, 'pose': pose}       
+
+        re_config_dets.update({str(int(t/1e3)):single_frame})
+
+    return re_config_dets
 
 if __name__ == "__main__":
     # cost = np.array([[4, 1, 3], [2, 0, 5], [3, 2, 2]])
@@ -601,25 +672,55 @@ if __name__ == "__main__":
     gt_path = "/data/annotation/livox_gt/done/2020-09-11-17-37-12_4_reConfig_done.yaml"
     gts = load_gt(gt_path)
 
-    det_path = "/data/itri_output/tracking_output/output/clustering/2020-09-11-17-37-12_4_ImmResult.json"
-    dets = load_det(det_path)
-
-    output_dir = "/data/itri_output/tracking_output/output/clustering"
-    output_path = filecreation(output_dir)
+    scenes_file = "2020-09-11-17-37-12_4_ImmResult.json"
+    cp_file = "tracking_result_with_label.json"
+    # baseline
+    det_path_l = "/data/annotation/livox_gt/livox_gt_annotate_velodyne_json/2020-09-11-17-37-12/"
+    # merge_detecotr v3
+    det_path_m = "/data/itri_output/tracking_output/output/clustering/merge_detector/v3_map/frame_num_1/"
+    det_path_m_2 = "/data/itri_output/tracking_output/output/clustering/merge_detector/v3_map/frame_num_2/"
+    # non merge_detecotr v2
+    # det_path_non_m = "/data/itri_output/tracking_output/output/clustering/non_merge_detector/v2/"
+    det_path_non_m = "/data/itri_output/tracking_output/output/clustering/non_merge_detector/v3_map/frame_num_2/"
+    # centerpoint
+    det_path_cp = "/home/user/repo/CenterPoint/itri/frame_num_4/tracking/"
+    det_paths = [det_path_l, det_path_m_2, det_path_m, det_path_cp]
+    dets_all = []
     
-    start = timer()
-    gt_frame, det_frame = config_data(gts, dets, output_path)
-    end = timer()
-    print('Config_data: {:.2f} sec'.format(end - start)) # Time in seconds, e.g. 5.38091952400282
+    is_centerpoint = False
+    print('Total have {} files to evaluate'.format(len(det_paths)))
+    for idx,det_path in enumerate(det_paths):
+        if idx != 3:
+            is_centerpoint = False
+            dets = load_det(os.path.join(det_path, scenes_file), is_centerpoint)
+        else:
+            is_centerpoint = True
+            dets = load_det(os.path.join(det_path, cp_file), is_centerpoint)
+        dets_all.append(dets)
 
-    mot = MOTAccumulator(gt_frame, det_frame, output_path)
-    start = timer()
-    mot.evaluate()
-    end = timer()
-    print('Evaluate time: {:.2f} sec'.format(end - start)) # Time in seconds, e.g. 5.38091952400282
-    start = timer()
-    mot.outputMetric()
-    end = timer()
-    print('Evaluate time: {:.2f} sec'.format(end - start)) # Time in seconds, e.g. 5.38091952400282
+    for iter in range(len(dets_all)):
+        output_dir = "/data/itri_output/tracking_output/output/clustering"
+        output_path = filecreation(output_dir)
+        
+        dets = dets_all[iter]
+        # if is_centerpoint:
+        if iter == 3:
+            dets = reconfigure(dets)
+        
+        print('-'*80)
+        print('Get det from {}'.format(det_paths[iter]))
+        start = timer()
+        gt_frame, det_frame = config_data(gts, dets, output_path)
+        end = timer()
+        print('Config_data: {:.2f} sec'.format(end - start))
+
+        mot = MOTAccumulator(gt_frame, det_frame, output_path, dist_thr=tp_dist_thr)
+        start = timer()
+        mot.evaluate()
+        end = timer()
+        print('Evaluate time: {:.2f} sec'.format(end - start))
+        mot.cal_metrics()
+        mot.outputMetric()
+
 
 
