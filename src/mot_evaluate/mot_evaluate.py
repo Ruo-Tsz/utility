@@ -187,6 +187,9 @@ class MOTAccumulator(object):
                         dist_m[i, j] = np.nan
 
             self.over_segmentation(t, dist_iou)
+            # limit dist to cal under overlap criteria, no overlap =>  impossible to be associated
+            overlap_mask =  np.where(dist_iou > 0, 1, np.nan)
+            dist_m = overlap_mask * dist_m
 
             result = linear_sum_assignment(dist_m)
             # get n*2 of index [i, j] array
