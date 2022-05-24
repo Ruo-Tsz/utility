@@ -1,5 +1,6 @@
 #! /usr/bin/python2
 # It's for visualizing the semantic of kuang-fu rd
+from math import floor
 import rospy
 import json
 import os
@@ -16,6 +17,7 @@ import copy
 
 # semantic jsons location
 map_path = '/data/annotation/map/hsinchu_guandfuroad/new'
+# output new non_accessible region flag
 output = False
 
 # submap viz setting
@@ -53,6 +55,14 @@ def load_map(result_file):
         except Exception as error: 
             print(error)
 
+    for sub_map_name in map_dict.keys():
+        # unit vector to shift all map
+        shift_vector = [0.76070793, -0.64909432, 0]
+        for poly_idx, road_poly in enumerate(map_dict[sub_map_name]):
+            pts = road_poly['points']
+            for index, pt in enumerate(pts):
+                pt['x'] += shift_vector[0]
+                pt['y'] += shift_vector[1]
 
 def viz_roadpolys(pub, sub_map_name):
     global rl_markers
@@ -308,44 +318,75 @@ def outputRegion():
         if start_pt[0] == end_pt[0] and start_pt[1] == end_pt[1] and start_pt[2] == end_pt[2]:
             continue
         
-        # enclose extended region
+        # enclose extended region, append start to end
         pts.append(pts[0])
 
     # cal seg spanning of raw data (pt_id != negative)
     for poly_idx, road_poly in enumerate(non_accessible_region['non_accessible_region']):
         pts = road_poly['points']
 
-        start_pt =  np.array([pts[0]['x'], pts[0]['y'], pts[0]['z']])
-        end_pt = np.array([pts[-1]['x'], pts[-1]['y'], pts[-1]['z']])
-            
-        # exclude extended pt with negative id
-        for pt in pts: 
-            if pt['point_id'] > 0:
-                start_pt = np.array([pt['x'], pt['y'], pt['z']])
-                break
-        
-        for idx in range(len(pts)-1, -1, -1): 
-            if pts[idx]['point_id'] > 0:
-                end_pt = np.array([pts[idx]['x'], pts[idx]['y'], pts[idx]['z']])
-                break
+        # search for ordinary enclose or tend to enclose one, using half as spanning
+        raw_enclose_one = False
+        # ordinary enclose
+        if pts[0]['point_id'] > 0 and pts[-1]['point_id'] > 0:
+            raw_enclose_one = True
+            print('raw_enclose_one: {}'.format(road_poly['main_id']))
+        elif pts[-1]['point_id'] == -2:
+            # tend to enclose one
+            raw_enclose_one = True
+            print('close_one: {}'.format(road_poly['main_id']))
 
-        # original enclosed ones, get half as span
-        if start_pt[0] == end_pt[0] and start_pt[1] == end_pt[1] and start_pt[2] == end_pt[2]:
-            half_idx = int(len(pts)/2)
-            start_pt =  np.array([pts[half_idx]['x'], pts[half_idx]['y'], pts[half_idx]['z']])
-            
-        road_poly['spanning_length'] = np.linalg.norm(end_pt-start_pt)
+        if raw_enclose_one:
+            mid_idx = int(floor(len(pts)/2))
+            start_pt =  np.array([pts[0]['x'], pts[0]['y'], pts[0]['z']])
+            end_pt = np.array([pts[mid_idx]['x'], pts[mid_idx]['y'], pts[mid_idx]['z']])
+            diag = np.linalg.norm(end_pt-start_pt)
+            road_poly['spanning_length'] = diag
+            center = (end_pt+start_pt)/2
+        else:
+            # special labeled region
+            if road_poly['id'] == 330:
+                start_pt =  np.array([pts[-2]['x'], pts[-2]['y'], pts[-2]['z']])
+                end_pt = np.array([pts[-3]['x'], pts[-3]['y'], pts[-3]['z']])
+                diag = np.linalg.norm(end_pt-start_pt)
+                road_poly['spanning_length'] = diag
+                center = (end_pt+start_pt)/2
+                road_poly['center_point'] = {'x': center[0], 'y': center[1], 'z':center[2]}
+                continue
+            # for two-ened expened pt (id = -1)
+            # for balancing extened region, using one extend and one original pt as diagonal to cal center and spanning length
+            # choose longer one
+            start_pt =  np.array([pts[0]['x'], pts[0]['y'], pts[0]['z']])
+            end_pt = np.array([pts[-2]['x'], pts[-2]['y'], pts[-2]['z']])
 
-        # cal region center as middle of spanning
-        # center = np.zeros((3,))
-        # for pt in pts:
-        #     center[0] += pt['x']
-        #     center[1] += pt['y']
-        #     center[2] += pt['z']
-        # center /= len(pts)
-        # road_poly['center_point'] = {'x': center[0], 'y': center[1], 'z':center[2]}
+            # raw start
+            for pt in pts:
+                if pt['point_id'] > 0:
+                    start_pt = np.array([pt['x'], pt['y'], pt['z']])
+                    break
 
-        center = (end_pt+start_pt)/2
+            start_pt_2 =  np.array([pts[0]['x'], pts[0]['y'], pts[0]['z']])
+            end_pt_2 = np.array([pts[-1]['x'], pts[-1]['y'], pts[-1]['z']])
+
+            # raw end
+            for pt in pts:
+                if pt['point_id'] > 0:
+                    end_pt_2 = np.array([pt['x'], pt['y'], pt['z']])
+                    break
+
+            diag = np.linalg.norm(end_pt-start_pt)
+            diag_2 = np.linalg.norm(end_pt_2-start_pt_2)
+
+            # original enclosed ones, get half as span
+            if (start_pt[0] == end_pt[0] and start_pt[1] == end_pt[1] and start_pt[2] == end_pt[2]) or road_poly["id"] == 325:
+                half_idx = int(len(pts)/2)
+                start_pt =  np.array([pts[half_idx]['x'], pts[half_idx]['y'], pts[half_idx]['z']])
+                road_poly['spanning_length'] = diag
+                center = (end_pt+start_pt)/2
+            else:
+                road_poly['spanning_length'] = diag if (diag > diag_2) else diag_2
+                center = (end_pt+start_pt)/2 if (diag > diag_2) else (end_pt_2+start_pt_2)/2
+
         road_poly['center_point'] = {'x': center[0], 'y': center[1], 'z':center[2]}
     
     with open(os.path.join(map_path, 'non_accessible_region.json'), 'w') as outFile:
