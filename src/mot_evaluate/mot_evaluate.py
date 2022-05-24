@@ -1,3 +1,4 @@
+#! /usr/bin/python2
 from __future__ import division
 import yaml
 import json
@@ -22,6 +23,8 @@ from shapely import geometry, affinity
 
 # 3 is more resonalble for TP, but would cause lots FT/FN and less TP compared to 5 (about 400-500 improvement)
 tp_dist_thr = 5
+# Flag for AMOTA, AMOTP
+avg_metric_flag = False
 
 def getYawFromQuat(obj):
     return euler_from_quaternion([obj['rotation']['x'], obj['rotation']['y'],
@@ -107,6 +110,11 @@ class MOTAccumulator(object):
         self.verbose = verbose
         self.metrics = {}
 
+        # {'t1':[{hyp1}, {hyp2}...], 't2:[], ...}
+        self.tp_dets = {}
+        self.num_thresholds = 20
+        self.min_recall = 0.05
+
     def register_new_track(self, timestamp, gid):
         self.track_history[gid] = [False]
         self.dist_error[gid] = [np.inf]
@@ -147,6 +155,7 @@ class MOTAccumulator(object):
             # 1. missing frame in det
             if not self.hyp.has_key(t):
                 self.tp[t] = 0
+                self.tp_dets[t] = []
                 self.fp[t] = 0
                 self.fn[t] = len(current_gts)
                 self.fn_gt[t] = []
@@ -168,6 +177,7 @@ class MOTAccumulator(object):
 
             gids = [gt['id'] for gt in current_gts]
             hids = [hyp['id'] for hyp in self.hyp[t]]
+            h_dets = [hyp['track'] for hyp in self.hyp[t]]
             
             dist_m = np.array(np.ones((len(self.gt[t]), len(self.hyp[t]))) * 1000)
             dist_iou = np.array(np.ones((len(self.gt[t]), len(self.hyp[t]))) * -1)
@@ -242,6 +252,9 @@ class MOTAccumulator(object):
 
             # set tp
             self.tp[t] = valid_result.shape[0]
+            self.tp_dets[t] = []
+            for i, j in valid_result:
+                self.tp_dets[t].append(h_dets[j])
             # set fp
             self.fp[t] = (len(self.hyp[t])-self.tp[t])
             # set fn
@@ -494,6 +507,54 @@ class MOTAccumulator(object):
             json.dump(stamped_id_history, outfile, indent = 4)
 
 
+    def compute_threshold(self, threshold=None):
+        '''
+            Calculate total TP scores, and return interpolated scores of respective recalls
+            The scores are computed if threshold is set to None. This is used to infer the all recall thresholds.
+            :param threshold: score threshold used to determine positives and negatives.
+            :return: interpolated list of scores and recall thresholds.
+        '''
+        thresholds = []
+        scores = []
+        for (frame, hypos) in self.tp_dets.items():
+            match_scores = [hypo['score'] for hypo in hypos]
+            scores.extend(match_scores)
+
+        # Abort if no predictions exist.
+        if len(scores) == 0:
+            return [np.nan] * self.num_thresholds
+
+        # Sort scores.
+        scores = np.array(scores)
+        scores.sort()
+        scores = scores[::-1]
+
+        # Compute recall levels.
+        tps = np.array(range(1, len(scores) + 1))
+        rec = tps / self.gt_num
+        assert len(scores) / self.gt_num <= 1
+
+        # Determine thresholds.
+        max_recall_achieved = np.max(rec)
+        rec_interp = np.linspace(self.min_recall, 1, self.num_thresholds).round(12)
+        thresholds = np.interp(rec_interp, rec, scores, right=0)
+
+        # Set thresholds for unachieved recall values to nan to penalize AMOTA/AMOTP later.
+        thresholds[rec_interp > max_recall_achieved] = np.nan
+
+        # Cast to list.
+        thresholds = list(thresholds.tolist())
+        rec_interp = list(rec_interp.tolist())
+
+        # Reverse order for more convenient presentation.
+        thresholds.reverse()
+        rec_interp.reverse()
+
+        # Check that we return the correct number of thresholds.
+        assert len(thresholds) == len(rec_interp) == self.num_thresholds
+
+        return thresholds, rec_interp
+
 
 def filecreation(file_dir):
     mydir = os.path.join(
@@ -620,58 +681,67 @@ def reconfigure(dets):
 
     return re_config_dets
 
+def AVG_METRIC_main(mot_accu):
+    '''
+        Cal AMOTA, AMOTP metrics in nuScenes
+        https://github.com/nutonomy/nuscenes-devkit algo.py
+    '''
+    accus = {}
+    # Using all asscoiated TP to choose recall and score thresholds
+    scores_thrs, rec_thrs = mot_accu.compute_threshold(None)
+
+    for idx, threshold in enumerate(scores_thrs):
+        print('Score threshold: {}'.format(threshold))
+        # using corresponding score to filtering prediciton and re-callculate all metrics (reset)
+        # Threshold boxes by score. Note that the scores were previously averaged over the whole track.
+        if np.isnan(threshold):
+            continue
+
+        # Do not compute the same threshold twice.
+        # This becomes relevant when a user submits many boxes with the exact same score.
+        if threshold in scores_thrs[:idx]:
+            continue
+        
+        filtered_det_frame = {}
+        for timestep in det_frame.keys():
+            if not filtered_det_frame.has_key(timestep):
+                filtered_det_frame[timestep] = []
+
+            for obj in det_frame[timestep]:
+                if obj['track']['score'] >= threshold:
+                    filtered_det_frame[timestep].append(obj)
+        
+        # calculate mota for different recall/scores threshold
+        motr = MOTAccumulator(gt_frame, filtered_det_frame, output_path, dist_thr=tp_dist_thr)
+        motr.evaluate()
+        motr.cal_metrics()
+        accus.update({rec_thrs[idx]:motr.metrics})
+    
+    # Compute AMOTA / AMOTP in evaluate.py
+    # Define mapping for metrics averaged over classes.
+    AVG_METRIC_MAP = ['mota', 'motp']
+    metrics = {}
+
+    for metric_name in AVG_METRIC_MAP:
+        values = np.ones(len(accus.values())) * np.nan
+        for idx, r_result in enumerate(accus.values()):
+            values[idx] = r_result[metric_name]
+
+        if np.all(np.isnan(values)):
+            # If no GT exists, set to nan.
+            value = np.nan
+        else:
+            # Overwrite any nan value with the worst possible value.
+            # np.all(values[np.logical_not(np.isnan(values))] >= 0)
+            # values[np.isnan(values)] = self.cfg.metric_worst[metric_name]
+            value = float(np.nanmean(values))
+        metrics['a'+metric_name] = value
+
+    recall_metrics = {'individual metrics': accus, 'overall':metrics}
+    with open(os.path.join(mot_accu.output_path, "recall_metrics.json"), "w") as outfile:
+        json.dump(recall_metrics, outfile, indent = 4)
+
 if __name__ == "__main__":
-    # cost = np.array([[4, 1, 3], [2, 0, 5], [3, 2, 2]])
-    # # # cost = np.array([[4, 1, 3], [2, 0, 5]])
-    # result = linear_sum_assignment(cost)
-    # # print(result)
-    # result = np.array(list(zip(*result)))
-    # print(result)
-    # # print(result.shape)
-    # result_v = []
-
-    # # # A = np.vstack((A, X[X[:,0] < 3]))
-    # for pair in result:
-    #     # print(pair)
-    #     # (2, )
-    #     # print(pair.shape)
-    #     # np.reshape(pair, (1, pair.shape[0]))
-    #     # pair = pair[np.newaxis, :]
-    #     if cost[pair[0], pair[1]] > 1:
-    #         result_v.append(pair)
-    #         # result_v = np.vstack((result_v, pair))
-    # print(result_v)
-    # print(result_v[0].shape)
-    # result_v = np.reshape(result_v, (-1, 2))
-    # # print(result_v.shape)
-    # print(result_v)
-    # for i, j in result_v:
-    #     print(i, j)
-
-    # total_error=0
-    # his = [True, False, False, True]
-    # dist_erro = [0.1, np.inf, np.inf, 3]
-    # matched_idx = np.where(np.array(his)==True)
-    # matched_idx = np.array(list(zip(*matched_idx))).flatten()
-    # print(matched_idx)
-    # print(matched_idx.shape)
-    # matched_idx = list(matched_idx)
-    # print(matched_idx)
-
-    # print(np.array(dist_erro).shape)
-
-    # for e in np.array(dist_erro)[matched_idx]:
-    #     total_error += e
-    # print(total_error)
-
-    # l = np.nan
-    # logic = np.isnan(l)
-    # print(logic)
-    # logic = np.isnan(2)
-    # print(logic)
-    # exit(-1)
-
-
     gt_path = "/data/annotation/livox_gt/done/2020-09-11-17-37-12_4_reConfig_done.yaml"
     gts = load_gt(gt_path)
 
@@ -725,5 +795,8 @@ if __name__ == "__main__":
         mot.cal_metrics()
         mot.outputMetric()
 
+        if avg_metric_flag:
+            print('\nEvaluating AMOTA/AMOTP...\n')
+            AVG_METRIC_main(mot)
 
 
