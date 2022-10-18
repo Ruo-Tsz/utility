@@ -5,17 +5,16 @@ import numpy as np
 
 gt = {}
 
-remove_id_list = [
-224,
-375,
-432,
-464,
-403,
-553,
-533]
+# 15861
+# remove_id_list = [66, 149, 155, 286, 339, 977, 1132, 1129]
+remove_id_list = []
 
-# dict with {merge: [mergees]}
-merge_track_id = {}
+
+#setting dict with {merger: [mergees]} {5: [312], 89: [737, 766], ... }, append mergee at the end of merger
+# merge_track_id = {148: [640], 1104: [1269], 383:[743], 677:[811], 862:[1189, 1257], 1198:[1291], 300:[679]}
+merge_track_id = {1515: [534],
+1519: [1163],
+1521: [1099]}
 
 # record mergee track info
 merged_track = {}
@@ -43,43 +42,54 @@ def getNearestIdx(merger, mergee):
 
 if __name__ == "__main__":
 
-    file_path = "/data/annotation/livox_gt/processing/2020-09-11-17-31-33_14_reConfig_official.yaml"
-    output_path = "/data/annotation/livox_gt/processing/2020-09-11-17-31-33_14_reConfig_official_merge.yaml"
+    # file_path = "/data/annotation/livox_gt/done/2020-09-11-17-37-12_4_reConfig_done_no_inter.yaml"
+    # output_path = "/data/annotation/livox_gt/done/2020-09-11-17-37-12_4_reConfig_done_merge.yaml"
+    file_path = "/data/annotation/livox_gt/2020-09-11-17-37-12_1_reConfig.yaml"
+    output_path = "/data/annotation/livox_gt/2020-09-11-17-37-12_1_reConfig_merge.yaml"
+    # file_path = "/data/annotation/livox_gt/done/2020-09-11-17-37-12_4_reConfig_done_local_inter.yaml"
+    # output_path = "/data/annotation/livox_gt/done/2020-09-11-17-37-12_4_reConfig_merge.yaml"
     gt = load_gt(file_path)
 
-    # id = 1306
-    # find = False
-    # track_dict = {}
-    # time_list = []
-    # for track in gt['tracks']:
-    #     for instance in track['track']:
-    #         time_stamp = instance['header']['stamp']['secs']*1e9 + instance['header']['stamp']['nsecs']
-    #         if time_stamp not in time_list:
-    #             time_list.append(time_stamp)
-    #     if track['id'] == 1306 and (not find):
-    #         track_dict = track['track'][0]
-    #         find = True
+    # # duplicate static object annotation with few manually labels to whole frame 
+    # print('Before duplicate {} tracks'.format(len(gt['tracks'])))
+    # # duplicate_ids = [75, 85, 42, 1317, 1318, 1319, 1320, 1321, 1322]
+    # duplicate_ids = [1328]
 
-    # # print(time_list)
-    # print(len(time_list))
+    # for duplicate_id in duplicate_ids:
+    #     print('Duplicate {}'.format(duplicate_id))
+    #     find = False
+    #     track_dict = {}
+    #     time_list = []
+    #     for track in gt['tracks']:
+    #         for instance in track['track']:
+    #             time_stamp = instance['header']['stamp']['secs']*1e9 + instance['header']['stamp']['nsecs']
+    #             if time_stamp not in time_list:
+    #                 time_list.append(time_stamp)
+    #         if track['id'] == duplicate_id and (not find):
+    #             # record latest pos
+    #             # track_dict = track['track'][-1]
+    #             track_dict = track['track'][0]
+    #             find = True
 
-    # time_list = sorted(time_list)
+    #     print(len(time_list))
 
-    # track_duplicate = []
-    # for time in time_list:
-    #         # header.stamp.secs = int(int(stamp) / 1e9)
-    #         # header.stamp.nsecs= round(int(stamp) % 1e9 /1e3) * 1e3
-    #     instance = copy.deepcopy(track_dict)
-    #     instance['header']['stamp']['secs'] = int(int(time) / 1e9)
-    #     instance['header']['stamp']['nsecs'] = int(round(int(time) % 1e9 / 1e3) * 1e3)
-    #     track_duplicate.append(instance)
+    #     time_list = sorted(time_list)
 
-    # for track in gt['tracks']:
-    #     if track['id'] == 1306:
-    #         track['track'] = track_duplicate
+    #     track_duplicate = []
+    #     for time in time_list:
+    #             # header.stamp.secs = int(int(stamp) / 1e9)
+    #             # header.stamp.nsecs= round(int(stamp) % 1e9 /1e3) * 1e3
+    #         instance = copy.deepcopy(track_dict)
+    #         instance['header']['stamp']['secs'] = int(int(time) / 1e9)
+    #         instance['header']['stamp']['nsecs'] = int(round(int(time) % 1e9 / 1e3) * 1e3)
+    #         track_duplicate.append(instance)
+
+    #     for track in gt['tracks']:
+    #         if track['id'] == duplicate_id:
+    #             track['track'] = track_duplicate
+        
     
-    
-
+    # print('After duplicate {} tracks'.format(len(gt['tracks'])))
     # with open(output_path, 'w') as file:
     #     documents = yaml.dump(gt, file, Dumper=MyDumper, default_flow_style=False)    
     # exit(0)
@@ -93,11 +103,18 @@ if __name__ == "__main__":
 
     for gt in gt['tracks']:
         if gt['id'] in remove_id_list:
+            print('Remove: {}'.format(gt['id']))
             continue
         out_gt['tracks'].append(gt)
     
     print('After remove {} tracks'.format(len(remove_id_list)))
     print(len(out_gt['tracks']))
+
+    # id_count = 0
+    # for gt in out_gt['tracks']:
+    #     if gt['id'] >= id_count:
+    #         id_count = gt['id']
+    # print('Final id is {}'.format(id_count))
 
     merged_id_list = []
     for id_list in merge_track_id.values():
@@ -113,16 +130,16 @@ if __name__ == "__main__":
         else:
             non_merged_gt['tracks'].append(gt)
 
-    print( merged_id_list )
-    print(merged_track.keys())
-    print(merge_track_id.keys())
+    # print( merged_id_list )
+    # print('mergees: ', merged_track.keys())
+    print('mergers:' ,merge_track_id.keys())
         
     merged_gt = copy.deepcopy(non_merged_gt)
     # merge
     for idx, gt in enumerate(merged_gt['tracks']):    
         if gt['id'] in merge_track_id.keys():
-            ori_time = gt['track'][-1]['header']['stamp']['secs']*1e9 + gt['track'][-1]['header']['stamp']['nsecs']
-            print('\nBefore merge {} last timestamp {:d}'.format(gt['id'], int(ori_time)))
+            ori_time = str(gt['track'][-1]['header']['stamp']['secs']) + str(gt['track'][-1]['header']['stamp']['nsecs'])
+            print('\nBefore merge {} last timestamp {}'.format(gt['id'], ori_time))
 
             for merged_id in merge_track_id[gt['id']]:
                 # check merged timestamp
@@ -134,10 +151,10 @@ if __name__ == "__main__":
                 
                 gt['track'] += merged_track[merged_id][start_idx:]
 
-                last_time = gt['track'][-1]['header']['stamp']['secs']*1e9 + gt['track'][-1]['header']['stamp']['nsecs']
-                print('merge {} into {} with last timestamp {:d}'.format(merged_id, gt['id'], int(last_time)))
+                last_time = str(gt['track'][-1]['header']['stamp']['secs']) + str(gt['track'][-1]['header']['stamp']['nsecs'])
+                print('merge {} into {} with last timestamp {}'.format(merged_id, gt['id'], last_time))
 
-
+    print('After merge {} tracks'.format(len(merged_gt['tracks'])))
     with open(output_path, 'w') as file:
         documents = yaml.dump(merged_gt, file, Dumper=MyDumper, default_flow_style=False)
         

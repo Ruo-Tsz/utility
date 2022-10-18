@@ -10,20 +10,35 @@ import sensor_msgs.point_cloud2 as pcl2
 from sensor_msgs.msg import PointCloud2, PointField
 import numpy as np
 from std_msgs.msg import Header
+from threading import Thread
+
 
 # follow the original result structure
 # 'PATH_TO_ROOT_DIR_OF_RESULT/kuang-fu-rd/2020-09-11-17-31-33'
-result_path = '/data/itri_output/tracking_output/kuang-fu-rd_v2/2020-09-11-17-31-33'
-viz_segment = '2020-09-11-17-31-33_13'
+result_path = '/data/itri_output/tracking_output/output/livox_gt_annotate_velodyne_raw/ego_compensation/2020-09-11-17-31-33/'
+viz_segment = '2020-09-11-17-31-33_9'
+cloud_path = '/data/itri_output/tracking_output/pointcloud/no_ego_compensated/2020-09-11-17-31-33/'
+
+
+result_path = '/data/itri_output/tracking_output/kuang-fu-rd_livox_public/ego compensation/kuang-fu-rd_v3/2020-09-11-17-31-33/result/'
+result_path = '/data/itri_output/tracking_output/output/'
+viz_segment = '2020-09-11-17-31-33_9'
+cloud_path = '/data/itri_output/tracking_output/kuang-fu-rd_livox_public/ego compensation/kuang-fu-rd_v3/2020-09-11-17-31-33/pointcloud/'
 # list of sorted string in micro-sec
 result_stamp = []
 result = {}
+ego_pose = {}
 
+shut_down = False
+block = False
 
 def load_result(result_file):
-    global result, result_stamp
+    global result, result_stamp, ego_pose
     with open (result_file, mode='r') as f:
-        result = json.load(f)['frames']
+        det_result = json.load(f)
+    result = det_result['frames']
+    for stamp, f in result.items():
+        ego_pose[stamp] = f['pose']
 
     result_stamp = sorted(list(result.keys())) 
 
@@ -76,7 +91,9 @@ def create_boxes_msg(objs_dict, header):
         T_m[1, 3] = obj['translation']['y']
         T_m[2, 3] = obj['translation']['z']
 
-        T_v = np.linalg.inv(T_m_v).dot(T_m) 
+        # T_v = np.linalg.inv(T_m_v).dot(T_m) 
+        T_v = T_m_v.dot(T_m) 
+        # T_v = T_m 
 
         obj_marker.label = int(obj['tracking_id'])
         obj_marker.pose.position.x = T_v[0, 3]
@@ -96,7 +113,7 @@ def create_boxes_msg(objs_dict, header):
     return obj_markers
 
 
-def create_pc(pc, header):
+def create_pc(pc, header, stamp):
     fields = []
     # fill sensor_msg with density
     fields = [PointField('x', 0, PointField.FLOAT32, 1),
@@ -104,25 +121,65 @@ def create_pc(pc, header):
         PointField('z', 8, PointField.FLOAT32, 1),
         PointField('intensity', 12, PointField.FLOAT32, 1)]
 
+    T_pose = np.eye(4)
+    if ego_pose.has_key(str(stamp)):
+        T_pose = transformations.quaternion_matrix(
+            np.array([
+                ego_pose[str(stamp)]['rotation']['x'],
+                ego_pose[str(stamp)]['rotation']['y'],
+                ego_pose[str(stamp)]['rotation']['z'],
+                ego_pose[str(stamp)]['rotation']['w']]))
+        
+        T_pose[0, 3] = ego_pose[str(stamp)]['position']['x']
+        T_pose[1, 3] = ego_pose[str(stamp)]['position']['y']
+        T_pose[2, 3] = ego_pose[str(stamp)]['position']['z']
+    else:
+        print('NOT get ego pose for {}'.format(stamp))
+
+    # pc: N x 4 (x, y ,z , intensity)
+    pc_local = np.hstack([pc[:, :3], np.ones([pc.shape[0], 1], dtype=np.float32)])
+    global_pc = np.dot(T_pose, pc_local.T).T
+
+    pc_msg = pcl2.create_cloud(header, fields, global_pc)
+    return pc_msg
+
     pc_msg = pcl2.create_cloud(header, fields, pc)
     return pc_msg
 
+def interrupt():
+    global block
+    while not shut_down: 
+        # raw input would block and keep waiting(stall) for input
+        raw_input('press any key to pause or resume:\n')
+        block = not block
+        print('pause' if block else 'resume')
+
+    print('shut_down')
 
 if __name__ == "__main__":    
     rospy.init_node("visualize_node", anonymous=True)
     mPubBoxes = rospy.Publisher('result_box', BoundingBoxArray, queue_size=100)
-    mPubScans = rospy.Publisher('velodynes_points', PointCloud2, queue_size=100)
+    mPubScans = rospy.Publisher('velodyne_points', PointCloud2, queue_size=100)
     
-    load_result(os.path.join(result_path, 'result', viz_segment + '_ImmResult.json'))
-    scans_dict = load_pc(os.path.join(result_path, 'pointcloud', viz_segment))
+    # load_result(os.path.join(result_path, 'result', viz_segment + '_ImmResult.json'))
+    # scans_dict = load_pc(os.path.join(result_path, 'pointcloud', viz_segment))
+
+    load_result(os.path.join(result_path, viz_segment + '_ImmResult.json'))
+    scans_dict = load_pc(os.path.join(cloud_path, viz_segment))
+
 
     header = Header()
-    header.frame_id = 'velodyne'
+    header.frame_id = 'map'
+
+    thread = Thread(target = interrupt, args = [])
+    thread.start()
 
     while not rospy.is_shutdown():
         rate = rospy.Rate(10) 
         for stamp in result_stamp:
             # print(int(stamp)*1000)
+            if rospy.is_shutdown():
+                break
             
             # pub based on result stamp
             if str(int(stamp)*1000) not in scans_dict.keys():
@@ -139,11 +196,16 @@ if __name__ == "__main__":
             objs_dict = result[stamp]
             # print('Get {} objs at {}'.format(len(objs_dict['objects']), header))
             boxes_msg = create_boxes_msg(objs_dict, header)
-            pc_msg = create_pc(scans_dict[str(int(stamp)*1000)], header)
+            pc_msg = create_pc(scans_dict[str(int(stamp)*1000)], header, stamp)
 
-            # print('create {}'.format(len(boxes_msg.boxes)))
+            while block:
+                # print('now block..')
+                pass
+
+            print('create {}'.format(len(boxes_msg.boxes)))
             mPubBoxes.publish(boxes_msg)
             mPubScans.publish(pc_msg)
             
             rate.sleep()
+    shut_down = True
         

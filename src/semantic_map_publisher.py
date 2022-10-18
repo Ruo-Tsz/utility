@@ -67,6 +67,7 @@ def load_map(result_file):
 def viz_roadpolys(pub, sub_map_name):
     global rl_markers
     elevation = -67 # 2020-09-11-17-37-12_4.bag
+    elevation = -58 # 2020-09-11-17-31-33_9.bag
 
     for poly_idx, road_poly in enumerate(map_dict[sub_map_name]):
         marker = Marker()
@@ -84,7 +85,7 @@ def viz_roadpolys(pub, sub_map_name):
         marker.scale.x = 0.1
 
         marker.points = []
-        marker.id = road_poly.get('id', poly_idx) 
+        marker.id = road_poly.get('id', poly_idx)
 
         # check extend pt
         pt_marker = Marker()
@@ -103,15 +104,15 @@ def viz_roadpolys(pub, sub_map_name):
         pt_marker.scale.y = 0.5
 
         pt_marker.points = []
-        pt_marker.id = road_poly.get('id', poly_idx) 
-        
+        pt_marker.id = road_poly.get('id', poly_idx)
+
         id_marker = Marker()
         id_marker.header.frame_id = 'map'
         id_marker.header.stamp = rospy.Time.now()
         id_marker.action = Marker.ADD
         id_marker.ns = sub_map_name + '_id'
         id_marker.type = Marker.TEXT_VIEW_FACING
-        id_marker.lifetime = rospy.Duration(0.1) 
+        id_marker.lifetime = rospy.Duration(0.1)
 
         id_marker.color.r = 1
         id_marker.color.g = 1
@@ -120,7 +121,7 @@ def viz_roadpolys(pub, sub_map_name):
         id_marker.scale.z = 5
 
         id_marker.id = road_poly.get('main_id', poly_idx)
-        id_marker.text = str(road_poly.get('main_id', poly_idx)) 
+        id_marker.text = str(road_poly.get('main_id', poly_idx))
         id_marker.pose.position.x = road_poly['points'][0]['x']
         id_marker.pose.position.y = road_poly['points'][0]['y']
         id_marker.pose.position.z = elevation
@@ -140,8 +141,8 @@ def viz_roadpolys(pub, sub_map_name):
         extend_marker.scale.x = 0.1
 
         extend_marker.points = []
-        extend_marker.id = road_poly.get('id', poly_idx) 
-        
+        extend_marker.id = road_poly.get('id', poly_idx)
+
 
         pts = road_poly['points']
         for index, pt in enumerate(pts):
@@ -154,7 +155,7 @@ def viz_roadpolys(pub, sub_map_name):
                     extend_marker.points.append(Point(pts[(index+1)%len(pts)]['x'], pts[(index+1)%len(pts)]['y'], elevation))
                 else:
                     extend_marker.points.append(Point(pts[index%len(pts)]['x'], pts[index%len(pts)]['y'], elevation))
-                    extend_marker.points.append(Point(pts[(index-1)%len(pts)]['x'], pts[(index-1)%len(pts)]['y'], elevation))        
+                    extend_marker.points.append(Point(pts[(index-1)%len(pts)]['x'], pts[(index-1)%len(pts)]['y'], elevation))
             
             # don't enclose polygon btw first and last pts
             if (not map_enclose_types[sub_map_name]) and index == len(pts)-1 and (sub_map_name != 'non_accessible'):
@@ -167,7 +168,7 @@ def viz_roadpolys(pub, sub_map_name):
             rl_markers.markers.append(id_marker)
             rl_markers.markers.append(extend_marker)
 
-            
+
     # pub.publish(rl_markers)
 
 
@@ -212,7 +213,7 @@ def mergeSeg():
 
             if map_dict['non_accessible'][j]['id'] in np.array(merge_id_list).flatten():
                 continue
-            
+
             pts_j = map_dict['non_accessible'][j]['points']
             start_j = np.array([pts_j[0]['x'], pts_j[0]['y'], pts_j[0]['z']])
             end_j = np.array([pts_j[-1]['x'], pts_j[-1]['y'], pts_j[-1]['z']])
@@ -228,7 +229,7 @@ def mergeSeg():
         print('id_1: {}; id:2 {}'.format(pair[0], pair[1]))
 
     print('Before merge: {}'.format(len(map_dict['non_accessible'])))
-    
+
     for pair in merge_id_list:
         for i in range(len(map_dict['non_accessible'])):
             if map_dict['non_accessible'][i]['id'] == pair[1]:
@@ -237,10 +238,10 @@ def mergeSeg():
                     if map_dict['non_accessible'][j]['id'] == pair[0]:
                         map_dict['non_accessible'][j]['points'].extend(seg_merged_list)
                         break
-                
+
                 del map_dict['non_accessible'][i]
                 break
-    
+
     print('After merge: {}'.format(len(map_dict['non_accessible'])))
 
 
@@ -254,8 +255,16 @@ def extendSeg():
         end_pt = np.array([pts[-1]['x'], pts[-1]['y'], pts[-1]['z']])
         # already closed polygon, skip
         if start_pt[0] == end_pt[0] and start_pt[1] == end_pt[1] and start_pt[2] == end_pt[2]:
+            if road_poly["id"] == 71:
+                start = np.array([pts[3]['x'], pts[3]['y'], 0])
+                end = np.array([pts[5]['x'], pts[5]['y'], 0])
+                print('71: {}'.format(getVector(start, end)))
+
+                start = np.array([pts[7]['x'], pts[7]['y'], 0])
+                end = np.array([pts[9]['x'], pts[9]['y'], 0])
+                print('71: {}'.format(getVector(start, end)))
             continue
-        
+
         # open but close, <10m, just enclose, append first pt to last
         if np.linalg.norm(start_pt-end_pt) < 10:
             pt_node = {}
@@ -263,11 +272,11 @@ def extendSeg():
             pt_node['point_id'] = -2
             pts.append(pt_node)
             continue
-        
+
         # # not enough pt for exterpolate
         # if len(pts) < 4:
         #     continue
-        
+
 
         # exterpolate pt of seg to enclose a polygon
         second_pt = np.array([pts[1]['x'], pts[1]['y'], pts[1]['z']])
@@ -275,9 +284,9 @@ def extendSeg():
         start_v = getVector(second_pt, start_pt)
         end_v = getVector(last_second_pt, end_pt)
 
-        # check if v is parallel by dot product, fail correct if vector have > 90 angle but tend to enclose
+        # check if v is parallel by dot product, But fail correct if vector have > 90 angle and originally tend to enclose(325)
         same_ori = np.sign(np.dot(start_v, end_v))
-        if same_ori <= 0:
+        if same_ori <= 0 and road_poly["id"] != 325:
             cloest_pt = getCloestLane(start_pt)
             road_v = getVector(start_pt, cloest_pt)
             oppo_v = 'start' if np.dot(start_v, road_v) > 0 else 'end'
@@ -286,11 +295,76 @@ def extendSeg():
             elif oppo_v == 'end':
                 end_v = start_v
 
-        # check if extended pt on the same side of line seg, if not, couldn't enclose a convex hull region
+        # special case
+        if road_poly["id"] == 329:
+            head_pt = start_pt + 29 * start_v
+            last_pt = end_pt + 5 * end_v
+            # print('329: {}'.format(start_v))
+            print('329: {}'.format(getVector(last_pt, head_pt)))
+        elif road_poly["id"] == 330:
+            # the same as end orientation of 329 region from appended head to last pt
+            start_v = (start_v + np.array([0.9620505, 0.27238165, -0.01634214]))/2
+            head_pt = start_pt + 20 * start_v
+            last_pt = end_pt + 10 * end_v
+            last_pt = last_pt + 30 * start_v
+        elif road_poly["id"] == 327:
+            # the same as end orientation of 329 region(the same road of two sides)
+            end_v = np.array([-0.09103496,  0.99575804, -0.01336273])
+            # head_pt = start_pt + 30 * start_v
+            # last_pt = end_pt + 35 * end_v
+            head_pt = start_pt + 100 * start_v
+            last_pt = end_pt + 40 * end_v
+            # print('327: {}'.format(end_v))
+        elif road_poly["id"] == 12:
+            head_pt = start_pt + 40 * start_v
+            last_pt = end_pt + 10 * end_v
+        elif road_poly["id"] == 325:
+            # head_pt = start_pt + 10 * start_v
+            head_pt = start_pt
+            last_pt = end_pt + 20 * end_v
+        elif road_poly["id"] == 84:
+            # head_pt = start_pt + 20 * start_v
+            # last_pt = end_pt + 30 * end_v
+            head_pt = start_pt + 30 * start_v
+            last_pt = end_pt + 40 * end_v
+        elif road_poly["id"] == 643:
+            head_pt = start_pt + 15 * start_v
+            last_pt = end_pt + 10 * end_v
+        elif road_poly["id"] == 331:
+            head_pt = start_pt + 15 * start_v
+            last_pt = end_pt + 10 * end_v
+        # 2020-09-11-17-31-33_9
+        elif road_poly["id"] == 298 or road_poly["id"] == 86 or road_poly["id"] == 95:
+            head_pt = start_pt + 30 * start_v
+            last_pt = end_pt + 30 * end_v
+            if road_poly["id"] == 94:
+                print('94: {}'.format(start_v))
+            if road_poly["id"] == 298:
+                print('298: {}'.format(end_v))
+        elif road_poly["id"] == 5:
+            # same as 94 end
+            start_v = np.array([ 0.58172287, 0.80772555, -0.09580159])
+            head_pt = start_pt + 30 * start_v
+            last_pt = end_pt + 30 * end_v
+        elif road_poly["id"] == 310:    
+            # same as 95 start
+            end_v = np.array([-0.62177757, -0.78220728,  0.03929919])
+            head_pt = start_pt + 30 * start_v
+            last_pt = end_pt + 30 * end_v
+        elif road_poly["id"] == 11:
+            head_pt = start_pt + 25 * start_v
+            last_pt = end_pt + 25 * end_v
+        elif road_poly["id"] == 94:
+            start_2 = np.array( [ 0.42270556,  0.9056383,  -0.03375331])
+            head_pt = start_pt + 10 * start_v
+            head_pt = head_pt + 20 * start_2
+            last_pt = end_pt + 30 * end_v
+        else:
+            head_pt = start_pt + 10 * start_v
+            last_pt = end_pt + 10 * end_v
 
 
-        head_pt = start_pt + 10 * start_v
-        last_pt = end_pt + 10 * end_v
+
 
         pt_node = {}
         pt_node['point_id'] = -1
@@ -388,16 +462,16 @@ def outputRegion():
                 center = (end_pt+start_pt)/2 if (diag > diag_2) else (end_pt_2+start_pt_2)/2
 
         road_poly['center_point'] = {'x': center[0], 'y': center[1], 'z':center[2]}
-    
-    with open(os.path.join(map_path, 'non_accessible_region.json'), 'w') as outFile:
+
+    with open(os.path.join(map_path, 'non_accessible_region_v3.json'), 'w') as outFile:
         json.dump(non_accessible_region, outFile, indent=4)
-    print('Output to ', os.path.join(map_path, 'non_accessible_region.json'))
+    print('Output to ', os.path.join(map_path, 'non_accessible_region_v3.json'))
 
 
 if __name__ == "__main__":    
     rospy.init_node("pub_map_node", anonymous=True)
     mPubRoadlines = rospy.Publisher('roadlines', MarkerArray, queue_size=100)
-    
+
     load_map(map_path)
 
     for sub_map_name in map_dict.keys():
