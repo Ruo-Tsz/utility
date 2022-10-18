@@ -11,16 +11,49 @@ from tf.transformations import euler_from_quaternion, quaternion_from_euler, qua
 from tqdm import tqdm
 
 
-# requirement: tf data at pc frame (gt at pc frame)
-scene = '2020-09-11-17-37-12_4'
-tf_path = '/data/itri_output/tracking_output/tf_localization/'+scene+'.json'
-pc_path = '/data/itri_output/tracking_output/pointcloud/no_ego_compensated/2020-09-11-17-37-12/' + scene
-gt_path = '/data/annotation/livox_gt/done/' + scene + '_reConfig_done_no_inter.yaml'
+output_moving_gt = False
 
-out_global_gt_path = '/data/annotation/livox_gt/done/' + scene + '_reConfig_done_global.yaml'
-out_inter_test_gt_path = '/data/annotation/livox_gt/done/' + scene + '_reConfig_done_global_test.yaml'
-out_inter_global_path = '/data/annotation/livox_gt/done/' + scene + '_reConfig_done_global_inter.yaml'
-out_inter_local_path = '/data/annotation/livox_gt/done/' + scene + '_reConfig_done_local_inter.yaml'
+# requirement: tf data at pc frame (gt at pc frame)
+# scene = '2020-09-11-17-37-12_4'
+# tf_path = '/data/itri_output/tracking_output/tf_localization/'+scene+'.json'
+# pc_path = '/data/itri_output/tracking_output/pointcloud/no_ego_compensated/2020-09-11-17-37-12/' + scene
+# gt_path = '/data/annotation/livox_gt/done/' + scene + '_reConfig_done_no_inter.yaml'
+
+# scene = '2020-09-11-17-31-33_9'
+# tf_path = '/data/itri_output/tracking_output/tf_localization/'+scene+'.json'
+# pc_path = '/data/itri_output/tracking_output/kuang-fu-rd_livox_public/ego compensation/kuang-fu-rd_v3/2020-09-11-17-31-33/pointcloud/' + scene
+# gt_path = '/data/annotation/livox_gt/done/' + scene + '_reConfig_remove_non_access.yaml'
+
+scene = '2020-09-11-17-37-12_1'
+tf_path = '/data/itri_output/tracking_output/tf_localization/'+scene+'.json'
+pc_path = os.path.join('/data/itri_output/tracking_output/pointcloud/ego_compensated', '2020-09-11-17-37-12', scene)
+gt_path = '/data/annotation/livox_gt/' + scene + '_reConfig_remove_non_access.yaml'
+
+out_global_gt_path = '/data/annotation/livox_gt/done/test/' + scene + '_reConfig_done_global.yaml'
+out_inter_test_gt_path = '/data/annotation/livox_gt/done/test/' + scene + '_reConfig_done_global_test.yaml'
+out_inter_global_path = '/data/annotation/livox_gt/done/test/' + scene + '_reConfig_done_global_inter.yaml'
+rm_gt_frame = [
+    1599817043592381000,
+    1599817043692559000,
+    1599817044692825000,
+    1599817044792887000,
+    1599817045292367000,
+    1599817047197079000,
+    1599817047292303000,
+    1599817048392473000,
+    1599817049892759000,
+    1599817049992304000,
+    1599817052292929000,
+    1599817052393742000,
+    1599817052492560000,
+    1599817052593139000,
+    1599817052692491000,
+    1599817052792495000]
+
+# final local interpolated gt
+out_inter_local_path = '/data/annotation/livox_gt/done/test/' + scene + '_reConfig_done_local_inter.yaml'
+if output_moving_gt:
+    out_inter_local_path = '/data/annotation/livox_gt/done/' + scene + '_reConfig_done_local_inter_moving.yaml'
 
 '''
     Append tag(moving/occluded) to annotaion
@@ -35,6 +68,35 @@ class MyDumper(yaml.Dumper):
         return super(MyDumper, self).increase_indent(flow, False)
 
 
+# local_gt_data = {}
+# with open(out_inter_local_path, mode='r') as file:
+#     local_gt_data = yaml.load(file)
+
+# occluded_gts = {}
+# counter = 0
+# for gt in local_gt_data['tracks']:
+#     occluded_gts[gt['id']] = []
+#     for tra in gt['track']:
+#         if tra.has_key('tags'):
+#             for tag in tra['tags']:
+#                 if tag == 'occluded':
+#                     local_pose = tf.transformations.quaternion_matrix(
+#                         np.array([tra['rotation']['x'], tra['rotation']['y'], tra['rotation']['z'], tra['rotation']['w']]))        
+#                     local_pose[0, 3] = tra['translation']['x']
+#                     local_pose[1, 3] = tra['translation']['y']
+#                     local_pose[2, 3] = tra['translation']['z']
+#                     if np.sqrt(np.sum(local_pose[:3, 3]**2)) > 100:
+#                         print(local_pose)
+#                     counter += 1
+                    
+
+# print('Have {} occluded'.format(counter))
+                    
+                    
+
+# exit(-1)
+
+
 tf_data = {}
 with open (tf_path, 'r') as file:
     tf_data = json.load(file)
@@ -44,12 +106,48 @@ gt_data = {}
 with open(gt_path, "r") as gt_file:
     gt_data = yaml.load(gt_file)
 
+# noisy gt_data w/ occluded tag, remove first and re-interpolated
+# tracks = gt_data['tracks']
+# global_tracks = []
+
+# counter = 0
+
+# for gt in tqdm(tracks):
+#     global_gt = copy.deepcopy(gt)
+#     global_tras = []
+#     for tra in gt['track']:
+#         rm = False
+#         if tra.has_key('tags'):
+#             for tag in tra['tags']:
+#                 if tag == 'occluded':
+#                     rm = True
+#                     break
+#         if rm:
+#             counter += 1
+#             continue
+
+#         global_tra = copy.deepcopy(tra)
+#         global_tras.append(global_tra)
+    
+#     global_gt['track'] = global_tras
+#     global_tracks.append(global_gt)
+
+# gt_data['tracks'] = global_tracks
+
+# out_rm_path = '/data/annotation/livox_gt/done/test/rm.yaml'
+# with open(out_rm_path, mode='w') as outFile:
+#     documents = yaml.dump(gt_data, outFile, Dumper=MyDumper, default_flow_style=False)
+
+# print('rm {} tracks'.format(counter))
+# exit(-1)
+
 
 # Transform all track to global by tf data
 global_gt_data = copy.deepcopy(gt_data)
 tracks = gt_data['tracks']
 global_tracks = []
 
+count = 0
 for gt in tqdm(tracks):
     global_gt = copy.deepcopy(gt)
     global_tras = []
@@ -60,6 +158,7 @@ for gt in tqdm(tracks):
         tf_localization = {}
         if tf_data.has_key(str(time)):
             tf_localization = tf_data[str(time)]['pose']
+            count += 1
         else:
             print('No tf data of gt at time: {}'.format(time))
             continue
@@ -94,27 +193,91 @@ for gt in tqdm(tracks):
 global_gt_data['tracks'] = global_tracks
 
 
+# filter gt for specific frame
+tracks = copy.deepcopy(global_gt_data['tracks'])
+filters_tracks = []
+
+f_count = 0
+for gt in tqdm(tracks):
+    filtered_gt = {'id': gt['id'], 'track': []}
+    for tra in gt['track']:
+        time = tra['header']['stamp']['secs']* 10**(9) + tra['header']['stamp']['nsecs']
+        # rm wrong gt with weird tf
+        if time in rm_gt_frame:
+            print('{} in rm'.format(time))
+            continue
+        filtered_gt['track'].append(tra)
+        f_count += 1
+    filters_tracks.append(filtered_gt)
+
+# global_gt_data['tracks'] = []
+global_gt_data['tracks'] = filters_tracks
+
+ff_count = 0
+for gt in tqdm(global_gt_data['tracks']):
+    for tra in gt['track']: 
+        ff_count += 1
+
+
+print(count, f_count, ff_count)
+
 with open(out_global_gt_path, mode='w') as outFile:
     documents = yaml.dump(global_gt_data, outFile, Dumper=MyDumper, default_flow_style=False)
 
 
+if output_moving_gt:
+    global_gt_data = {}
+    with open(out_global_gt_path, mode='r') as outFile:
+        global_gt_data = yaml.load(outFile)
+    # add moving tag to whole trajectory if the overall 2D vel is over 1m/s
+    moving_v_thr = 1
+    for gt in tqdm(global_gt_data['tracks']):
+        first_loc = np.array([gt['track'][0]['translation']['x'], gt['track'][0]['translation']['y']])
+        last_loc = np.array([gt['track'][-1]['translation']['x'], gt['track'][-1]['translation']['y']])
+        dt = (gt['track'][-1]['header']['stamp']['secs']* 10**(9) + gt['track'][-1]['header']['stamp']['nsecs']) - \
+        (gt['track'][0]['header']['stamp']['secs']* 10**(9) + gt['track'][0]['header']['stamp']['nsecs'])
+        v = (last_loc - first_loc)/dt*(10**(9))
+        if gt['id'] == 707:
+            print(v)
+
+        if np.sqrt(np.sum(v**2)) < moving_v_thr:
+            continue
+
+        # give all history a tag
+        for tra in gt['track']:
+            if tra.has_key('tags'):
+                tra['tags'].append('moving')
+            else:
+                tra['tags'] = ['moving']
+
+    out_global_moving_gt_path = '/data/annotation/livox_gt/done/' + scene + '_reConfig_done_global_moving.yaml'
+    with open(out_global_moving_gt_path, mode='w') as outFile:
+        # documents = yaml.dump(global_gt_data, outFile, Dumper=MyDumper, default_flow_style=False)
+        # cannot indent 4 but wouldn't have !!python/unicode predent
+        documents = yaml.safe_dump(global_gt_data, outFile, default_flow_style=False)
+    # re-configure to indent 4
+    non_indent = {}                                                                                                                                                                                      
+    with open(out_global_moving_gt_path, "r") as gt_file:
+        non_indent = yaml.load(gt_file)
+    with open(out_global_moving_gt_path, mode='w') as outFile:
+        documents = yaml.dump(non_indent, outFile, allow_unicode=True, Dumper=MyDumper, default_flow_style=False)
+
 
 def interpolateTra(index, tras, times):
     '''
-        interpolate of time btw (index-1) and index of tras
-        @param:
-            INPUT:
-                index: int, occluded times is btw (index-1) and index of tras
-                tras: list of trajectory
-                times: list of timestamps, which is consecutive timestamp needed to be interpolate into tras
-            OUPUT:
-                dict of interpolated tras
-
+        # interpolate of time btw (index-1) and index of tras
+        # @param:
+        #     INPUT:
+        #         index: int, occluded times is btw (index-1) and index of tras
+        #         tras: list of trajectory
+        #         times: list of timestamps, which is consecutive timestamp needed to be interpolate into tras
+        #     OUPUT:
+        #         dict of interpolated tras
     '''
     assert index > 0, 'wrong position of insertion of trajectory'
     outTras = {}
 
-    p1_dict = tras[index-1]
+    p1_dict = tras['track'][index-1]
     t1 = p1_dict['header']['stamp']['secs']* 10**(9) + p1_dict['header']['stamp']['nsecs']
     (roll_1, pitch_1, yaw_1) = euler_from_quaternion ([ p1_dict['rotation']['x'], p1_dict['rotation']['y'], p1_dict['rotation']['z'], p1_dict['rotation']['w'] ])
     p1 = tf.transformations.quaternion_matrix(
@@ -123,7 +286,7 @@ def interpolateTra(index, tras, times):
     p1[1, 3] = p1_dict['translation']['y']
     p1[2, 3] = p1_dict['translation']['z']
 
-    p2_dict = tras[index]
+    p2_dict = tras['track'][index]
     t2 = p2_dict['header']['stamp']['secs']* 10**(9) + p2_dict['header']['stamp']['nsecs']
     (roll_2, pitch_2, yaw_2) = euler_from_quaternion ([ p2_dict['rotation']['x'], p2_dict['rotation']['y'], p2_dict['rotation']['z'], p2_dict['rotation']['w'] ])
     p2 = tf.transformations.quaternion_matrix(
@@ -132,15 +295,23 @@ def interpolateTra(index, tras, times):
     p2[1, 3] = p2_dict['translation']['y']
     p2[2, 3] = p2_dict['translation']['z']
 
-    # may be opposite orientation wiht pi
-    if math.fabs(yaw_1-yaw_2) > math.pi/2:
+    # may be opposite orientation wiht pi (yaw = [-pi, pi])
+    while math.fabs(yaw_1-yaw_2) > math.pi/2:
         if yaw_2 > yaw_1:
             yaw_2 -= math.pi
         else:
             yaw_2 += math.pi
+    # if math.fabs(yaw_1-yaw_2) > math.pi/2:
+    #     if yaw_2 > yaw_1:
+    #         yaw_2 -= math.pi
+    #     else:
+    #         yaw_2 += math.pi
         q_2 = quaternion_from_euler(roll_2, pitch_2, yaw_2)
         p2 = tf.transformations.quaternion_matrix(
             np.array([ q_2[0], q_2[1], q_2[2], q_2[3] ]))
+        p2[0, 3] = p2_dict['translation']['x']
+        p2[1, 3] = p2_dict['translation']['y']
+        p2[2, 3] = p2_dict['translation']['z']
 
     # v = (p2 - p1) / (float(t2 - t1)/10**(9))
     linear_v = (p2[:3, 3] - p1[:3, 3]) / (float(t2 - t1)/10**(9))
@@ -166,7 +337,10 @@ def interpolateTra(index, tras, times):
         outTras[t]['translation']['z'] = float(p[2, 3])
 
         # add tags
-        outTras[t]['tags'] = ['occluded']
+        if outTras[t].has_key('tags'):
+            outTras[t]['tags'].append('occluded')
+        else:
+            outTras[t]['tags'] = ['occluded']
         # print(outTras[t])
     
     return outTras
@@ -177,6 +351,9 @@ def sortTime(tra):
 
 
 # Interpolate data into transformed global annotation
+if output_moving_gt:
+    out_global_gt_path = out_global_moving_gt_path
+
 global_gt_data = {}
 with open(out_global_gt_path, mode='r') as outFile:
     global_gt_data = yaml.load(outFile)
@@ -200,6 +377,9 @@ for gt in tqdm(tracks):
         timestamp.append(time)
 
     list.sort(timestamp)
+    print('gt:{}; timestamps: {}'.format(gt['id'], len(timestamp)))
+    if len(timestamp) == 0:
+        continue
     start_t = sorted(timestamp)[0]
     end_t = sorted(timestamp)[-1]
 
@@ -261,7 +441,7 @@ for gt in tqdm(tracks):
     for interval in lost_interval:
         index = np.searchsorted(np.array(timestamp), interval[0]) 
         # append interval btw (index-1) and index of timestamp
-        inter_tras = interpolateTra(index, gt['track'], interval)
+        inter_tras = interpolateTra(index, gt, interval)
         all_inter_tras.extend(inter_tras.values())
     # print('Inter {} tras'.format(len(all_inter_tras)))
     # print('Befor inser {} tras'.format(len(gt['track'])))
