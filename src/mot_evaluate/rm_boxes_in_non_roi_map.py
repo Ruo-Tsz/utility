@@ -76,12 +76,12 @@ def loadRoiMap(tf_data):
     return sub_map_region
 
 
-def filter_non_roi_boxes(inBoxes, boxesLen):
+def filter_non_roi_boxes(inBoxes, boxesLen, scenes):
     '''
         filter out trajectory which used to be located in the non accessible areas
         only tra which 80% of lifetime in the non accessible areas would be removed
     '''
-    tf_path = '/data/itri_output/tracking_output/tf_localization/2020-09-11-17-31-33_9.json'
+    tf_path = os.path.join('/data/itri_output/tracking_output/tf_localization', scenes+'.json')
     with open (tf_path, mode='r') as f:
         tf_data = json.load(f)
     
@@ -224,7 +224,7 @@ def config_data(gts, output_path):
     return gt_data, gt_len
 
 
-def re_congure_data(gts, rm_id, output_path):
+def re_congure_data(gts, rm_id, output_path, scenes):
     out_gts = {}
     out_gts = copy.deepcopy(gts)
     out_gts['tracks'] = []
@@ -234,7 +234,8 @@ def re_congure_data(gts, rm_id, output_path):
             continue
         out_gts['tracks'].append(trk)
 
-    with open(os.path.join(output_path, '2020-09-11-17-31-33_9_reConfig_remove_non_access_2.yaml'), 'w') as file:
+    # with open(os.path.join(output_path, '2020-09-11-17-31-33_9_reConfig_remove_non_access_2.yaml'), 'w') as file:
+    with open(os.path.join(output_path, scenes + '_reConfig_remove_non_access.yaml'), 'w') as file:
         documents = yaml.dump(out_gts, file, Dumper=MyDumper, default_flow_style=False)
     
     return out_gts
@@ -248,15 +249,18 @@ def load_gt(file_path):
 
 
 if __name__ == '__main__':
-    gt_path = "/data/annotation/livox_gt/done/2020-09-11-17-31-33_9_reConfig.yaml"
-    output_path = "/data/annotation/livox_gt/done"
+    scenes = '2020-09-11-17-37-12_1'
+    # gt_path = "/data/annotation/livox_gt/done/2020-09-11-17-31-33_9_reConfig.yaml"
+    gt_path = os.path.join('/data/annotation/livox_gt', scenes+'_reConfig.yaml')
+    # output_path = "/data/annotation/livox_gt/done"
+    output_path = "/data/annotation/livox_gt"
     gts = load_gt(gt_path)
     gt_frame, gt_len = config_data(gts, output_path)
-    filter_gts, rm_id = filter_non_roi_boxes(gt_frame, gt_len)
+    filter_gts, rm_id = filter_non_roi_boxes(gt_frame, gt_len, scenes)
 
     with open(os.path.join(output_path, "filter_gt.json"), "w") as outfile:
         json.dump(filter_gts, outfile, indent = 4)
 
-    re_congure_data(gts, rm_id, output_path)
+    re_congure_data(gts, rm_id, output_path, scenes)
 
     
