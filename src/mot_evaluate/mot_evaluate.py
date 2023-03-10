@@ -68,6 +68,8 @@ rm_gt_frame = [
     1599817052593139000,
     1599817052792495000]
 
+original_detection = {}
+
 def getYawFromQuat(obj):
     return euler_from_quaternion([obj['rotation']['x'], obj['rotation']['y'],
             obj['rotation']['z'], obj['rotation']['w']])[2]
@@ -790,7 +792,8 @@ def config_data(gts, dets, output_path):
                 'rotation': obj['rotation'],
                 'label': obj['tracking_name'],
                 'score': obj['tracking_score'],
-                'header': header_dict}
+                'header': header_dict,
+                'occluded_part': obj['occluded_part']}
 
             if obj.has_key('tags'):
                 o['track'].update({'tags': obj['tags']})
@@ -1212,7 +1215,7 @@ def filter_box_without_matched(inBox, allGtFrame, outputAllState):
     return outBox
     
 
-def interpolateTra(index, tras, times):
+def interpolateTra(index, tras, times, isCtrv=True):
     '''
         interpolate of time btw (index-1) and index of tras
         @param:
@@ -1267,7 +1270,10 @@ def interpolateTra(index, tras, times):
 
     # v = (p2 - p1) / (float(t2 - t1)/10**(9))
     linear_v = (p2[:3, 3] - p1[:3, 3]) / (float(t2 - t1)/10**(9))
-    yaw_v = (yaw_2 - yaw_1) / (float(t2 - t1)/10**(9))
+    if isCtrv:
+        yaw_v = (yaw_2 - yaw_1) / (float(t2 - t1)/10**(9))
+    else:
+        yaw_v = 0
 
     for t in times:
         outTras[t] = copy.deepcopy(p1_dict)
@@ -1287,6 +1293,23 @@ def interpolateTra(index, tras, times):
         outTras[t]['translation']['x'] = float(p[0, 3])
         outTras[t]['translation']['y'] = float(p[1, 3])
         outTras[t]['translation']['z'] = float(p[2, 3])
+
+        # linearly interpolate occluded grid coordinate from last position, for detection file
+        if outTras[t].has_key('occluded_part'):
+            # det 188 @ 1599817094.792036 matched (without occluded part) but next 1599817094.892315 lost 
+            # direct retrieve lost track from original det file from "lost" state
+            for idx, obj in enumerate(original_detection[str(t)[:-3]]['objects']):
+                if tras['id'] == int(obj['tracking_id']):
+                    # print('p1_dict occluded: {}; have {} occluded'.format(t1, len(p1_dict['occluded_part'])))
+                    # print('now interpolate for {}'.format(t))
+                    # if len(p1_dict['occluded_part']) != 0:
+                    #     print("{}: before {}, {}, {}".format(tras['id'], outTras[t]['occluded_part'][0]['x'], outTras[t]['occluded_part'][0]['y'], outTras[t]['occluded_part'][0]['z']))
+                    # else:
+                    #     print("{}: before, no occluded @ p1 {}".format(tras['id'], t1))
+                    outTras[t]['occluded_part'] = obj['occluded_part'] if obj.has_key('occluded_part') else []
+                    # print("{}: after {}, {}, {}".format(tras['id'], outTras[t]['occluded_part'][0]['x'], outTras[t]['occluded_part'][0]['y'], outTras[t]['occluded_part'][0]['z']))
+                    break
+
 
         # add tags
         if outTras[t].has_key('tags'):
@@ -1333,6 +1356,7 @@ def reconfigure_det_to_gt(inBoxes):
             one_tra['state'] = tra['state']
             one_tra['velocity'] = tra['velocity']
             one_tra['tracking_score'] = tra['tracking_score']
+            one_tra['occluded_part'] = tra['occluded_part'] if tra.has_key('occluded_part') else []
 
             one_id['track'].append(one_tra)
             one_id['track'].sort(key=sortTime)
@@ -1430,6 +1454,8 @@ def interpolate_track(inBoxes, allLidarFrame, isGt=True):
         for interval in lost_interval:
             index = np.searchsorted(np.array(timestamp), interval[0]) 
             # append interval btw (index-1) and index of existing timestamp
+            # for visaulization, no need for ctrv model to interpolate detection result (rotating)
+            # inter_tras = interpolateTra(index, gt, interval, isCtrv=isGt)
             inter_tras = interpolateTra(index, gt, interval)
             all_inter_tras.extend(inter_tras.values())
 
@@ -1490,6 +1516,7 @@ def interpolate_track(inBoxes, allLidarFrame, isGt=True):
                 one_tra['tracking_name'] = obj['label']
                 one_tra['tracking_score'] = obj['tracking_score']
                 one_tra['velocity'] = obj['velocity']
+                one_tra['occluded_part'] = obj['occluded_part']
                 
                 one_tra['state'] = obj['state']
                 if obj.has_key('tags'):
@@ -1639,6 +1666,7 @@ if __name__ == "__main__":
         output_path = filecreation(output_dir)
         
         dets = dets_all[iter]
+        original_detection = copy.deepcopy(dets)
         if is_centerpoint:
         # if iter == 3:
             dets = reconfigure(dets)
