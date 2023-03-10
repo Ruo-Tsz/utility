@@ -75,9 +75,19 @@ def load_pc(pc_path):
 
     return scans_dict
 
-def create_boxes_msg(objs_dict, header):
+def create_boxes_msg(objs_dict, header, msg_type, focus_id=None):
     obj_markers = BoundingBoxArray()
     obj_markers.header = header
+
+    id_markers = MarkerArray()
+    # delete last shadow first 
+    marker = Marker()
+    marker.id = 0
+    marker.ns = 'delete'
+    marker.action = Marker.DELETEALL
+    id_markers.markers.append(marker)
+
+    scale_param = 1
 
     for obj in objs_dict:
         obj_marker = BoundingBox()
@@ -100,19 +110,51 @@ def create_boxes_msg(objs_dict, header):
         obj_marker.label = int(obj['id'])
         obj_marker.pose.position.x = T_v[0, 3]
         obj_marker.pose.position.y = T_v[1, 3]
-        obj_marker.pose.position.z = T_v[2, 3]
+        if not show_2D:
+            obj_marker.pose.position.z = T_v[2, 3]
+        else:
+            obj_marker.pose.position.z = 0
         obj_marker.pose.orientation.x = quaternion_from_matrix(T_v)[0]
         obj_marker.pose.orientation.y = quaternion_from_matrix(T_v)[1]
         obj_marker.pose.orientation.z = quaternion_from_matrix(T_v)[2]
         obj_marker.pose.orientation.w = quaternion_from_matrix(T_v)[3]
-        obj_marker.dimensions.x = obj['track']['box']['length']
-        obj_marker.dimensions.y = obj['track']['box']['width']
-        obj_marker.dimensions.z = obj['track']['box']['height']
+        obj_marker.dimensions.x = obj['track']['box']['length'] *scale_param
+        obj_marker.dimensions.y = obj['track']['box']['width'] *scale_param
+        if not show_2D:
+            obj_marker.dimensions.z = obj['track']['box']['height'] *scale_param
+        else:
+            obj_marker.dimensions.z = 0.001
 
         obj_markers.boxes.append(obj_marker)
         # print(obj_markers.boxes[-1].pose.position.x, obj_markers.boxes[-1].pose.position.y, obj_markers.boxes[-1].pose.position.z)
 
-    return obj_markers
+        id_marker = Marker()
+        id_marker.header = header
+        id_marker.action = Marker.ADD
+        id_marker.ns = msg_type + '_id'
+        id_marker.type = Marker.TEXT_VIEW_FACING
+        # id_marker.lifetime = rospy.Duration(1/play_rate)
+ 
+        id_marker.color.r = id_color_map[msg_type][0] if id_color_map.has_key(msg_type) else 1
+        id_marker.color.g = id_color_map[msg_type][1] if id_color_map.has_key(msg_type) else 1
+        id_marker.color.b = id_color_map[msg_type][2] if id_color_map.has_key(msg_type) else 1
+        id_marker.color.a = 1
+        id_marker.scale.z = 1.2
+        id_marker.id = int(obj['id'])
+        id_marker.text = str((obj['id'])) 
+        id_marker.pose.position.x = T_v[0, 3]
+        id_marker.pose.position.y = T_v[1, 3]
+        id_marker.pose.position.z = T_v[2, 3] + 2
+
+        if focus_id != None and int(obj['id'] not in focus_id):
+            continue
+        # else:
+        #     id_marker.pose.position.x = T_v[0, 3] + 0.5
+        #     id_marker.pose.position.y = T_v[1, 3] - 1
+        #     id_marker.pose.position.z = T_v[2, 3] + 3
+        id_markers.markers.append(id_marker)
+
+    return obj_markers, id_markers
 
 
 def create_pc(pc, header):
@@ -316,10 +358,10 @@ if __name__ == "__main__":
             fn_dict = fn_gt[stamp] if fn_gt.has_key(stamp) else []
             fp_dict = fp_hyp[stamp] if fp_hyp.has_key(stamp) else []
             # print('Get {} objs at {}'.format(len(objs_dict['objects']), header))
-            det_boxes_msg = create_boxes_msg(objs_dict, header)
-            gt_boxes_msg = create_boxes_msg(gt_dict, header)
-            fn_boxes_msg = create_boxes_msg(fn_dict, header)
-            fp_boxes_msg = create_boxes_msg(fp_dict, header)
+            det_boxes_msg, det_id_msg = create_boxes_msg(objs_dict, header, 'det')
+            gt_boxes_msg, gt_id_msg = create_boxes_msg(gt_dict, header, 'gt')
+            fn_boxes_msg, fn_id_msg = create_boxes_msg(fn_dict, header, 'fn')
+            fp_boxes_msg, fp_id_msg = create_boxes_msg(fp_dict, header, 'fp')
             pc_msg = create_pc(scans_dict[str(int(stamp))], header)
             # cv2 fragemented ones
             img = np.full((img_size, img_size, 3), 255, np.uint8)
