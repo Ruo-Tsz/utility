@@ -81,11 +81,11 @@ def my_unicode_repr(self, data):
     return self.represent_str(data.encode('utf-8'))
 
 
-input_dir = '/data/itri_output/tracking_output/output/unprocessed/2020-09-11-17-37-12'
-output_dir = '/data/annotation/livox_gt/processing/2020-09-11-17-37-12'
-segment = 3
+input_dir = '/data/itri_output/tracking_output/output/livox_gt_annotate_velodyne_raw/ego_compensation/2020-09-11-17-37-12'
+output_dir = '/data/annotation/livox_gt'
+segment = 1
 input_file = '2020-09-11-17-37-12_'+str(segment)+'_ImmResult'
-output_file = '2020-09-11-17-37-12_'+str(segment)+'_reConfig'
+output_file = '2020-09-11-17-37-12_'+str(segment)+'_reConfig_test'
 
 
 data_path = os.path.join(input_dir, input_file + '.json')

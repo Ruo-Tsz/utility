@@ -46,9 +46,9 @@ filterPoint = True
 # if use map to filter
 filterNonRoi = True
 
-# scenes_file = "2020-09-11-17-37-12_4"
+scenes_file = "2020-09-11-17-37-12_4"
 # scenes_file = "2020-09-11-17-31-33_9"
-scenes_file = "2020-09-11-17-37-12_1"
+# scenes_file = "2020-09-11-17-37-12_1"
 
 # in 2020-09-11-17-37-12_1
 rm_gt_frame = [
@@ -1116,9 +1116,13 @@ def filter_box_without_point(gts, scenes_file):
     '''
 
     big_scene = scenes_file.split('_')[0]
-    # pc_path = os.path.join('/data/itri_output/tracking_output/pointcloud/no_ego_compensated', big_scene, scenes_file)
+    
+    # scenes_file = "2020-09-11-17-37-12_4"
+    pc_path = os.path.join('/data/itri_output/tracking_output/pointcloud/no_ego_compensated', big_scene, scenes_file)
+    # scenes_file = "2020-09-11-17-31-33_9"
     # pc_path = os.path.join('/data/itri_output/tracking_output/kuang-fu-rd_livox_public/ego compensation/kuang-fu-rd_v3', big_scene, 'pointcloud', scenes_file)
-    pc_path = os.path.join('/data/itri_output/tracking_output/pointcloud/ego_compensated' , big_scene, scenes_file)
+    # scenes_file = "2020-09-11-17-37-12_1"
+    # pc_path = os.path.join('/data/itri_output/tracking_output/pointcloud/ego_compensated' , big_scene, scenes_file)
     # load point cloud
     all_pc = load_pc(pc_path)
 
@@ -1548,12 +1552,6 @@ if __name__ == "__main__":
     det_path_m_occ_base_2 = "/data/itri_output/tracking_output/output/clustering/merge_detector/v3_map/frame_num_2/2020-09-11-17-37-12_4/270_16607_preprocessing/occlusion_fun_mMinPt0_mOccupiedTh0.3_mAngResol1/without_uncertain_3.5/occlusion_fun_base16_outputall/"
 
     det_path_baseline_likelihood = '/data/itri_output/tracking_output/output/clustering/merge_detector/v3_map/frame_num_2/2020-09-11-17-37-12_4/260_16735/baseline_even_clustering_likelihood_pda'
-    # specified angle clustering
-    # det_path_m = "/data/itri_output/tracking_output/output/clustering/merge_detector/v3_map/frame_num_1/specified_angle_clustering/"
-    # det_path_m_2 = "/data/itri_output/tracking_output/output/clustering/merge_detector/v3_map/frame_num_2/specified_angle_clustering/"
-    # non merge_detecotr v2
-    # det_path_non_m = "/data/itri_output/tracking_output/output/clustering/non_merge_detector/v2/"
-    det_path_non_m = "/data/itri_output/tracking_output/output/clustering/non_merge_detector/v3_map/frame_num_2/"
     # centerpoint
     det_path_cp = '/data/itri_output/tracking_output/output/clustering/centerpoint/2020-09-11-17-37-12_4/frame_2/Minit_4/immortal'
     # det_paths = [det_path_l, det_path_m_2, det_path_m, det_path_cp, det_path_m_occ, det_path_m_occ2, det_path_m_occ3]
@@ -1568,18 +1566,11 @@ if __name__ == "__main__":
     imm_occlu_bl= '/data/itri_output/tracking_output/output/clustering/merge_detector/v3_map/frame_num_2/2020-09-11-17-31-33_9/113_5275_preprocessing/baseline_even_clustering_likelihood_pda/test_uncertainty_3.5'
     imm_imortal ='/data/itri_output/tracking_output/output/clustering/merge_detector/v3_map/frame_num_2/2020-09-11-17-31-33_9/113_5275_preprocessing/immortal'
     
-    # new seg
-    imm_1_bl = '/data/itri_output/tracking_output/output/clustering/merge_detector/v3_map/frame_num_1/2020-09-11-17-37-12_1/baseline'
-    imm_2_bl = '/data/itri_output/tracking_output/output/clustering/merge_detector/v3_map/frame_num_2/2020-09-11-17-37-12_1/baseline'
-    imm_immortal = '/data/itri_output/tracking_output/output/clustering/merge_detector/v3_map/frame_num_2/2020-09-11-17-37-12_1/immortal'
+    # new seg 2020-09-11-17-37-12_1
+    # imm_1_bl = '/data/itri_output/tracking_output/output/clustering/merge_detector/v3_map/frame_num_1/2020-09-11-17-37-12_1/baseline'
+    # imm_2_bl = '/data/itri_output/tracking_output/output/clustering/merge_detector/v3_map/frame_num_2/2020-09-11-17-37-12_1/baseline'
+    # imm_immortal = '/data/itri_output/tracking_output/output/clustering/merge_detector/v3_map/frame_num_2/2020-09-11-17-37-12_1/immortal'
 
-    imm_cp_bl = '/data/itri_output/tracking_output/output/clustering/centerpoint/2020-09-11-17-37-12_1/imm/baseline'
-    imm_cp_immortal = '/data/itri_output/tracking_output/output/clustering/centerpoint/2020-09-11-17-37-12_1/imm/immortal'
-    imm_cp_occlu_0 = '/data/itri_output/tracking_output/output/clustering/centerpoint/2020-09-11-17-37-12_1/imm/occlusion/6'
-    imm_cp_occlu_1 = '/data/itri_output/tracking_output/output/clustering/centerpoint/2020-09-11-17-37-12_1/imm/occlusion/9.5'
-    imm_cp_occlu_2 = '/data/itri_output/tracking_output/output/clustering/centerpoint/2020-09-11-17-37-12_1/imm/occlusion/16'
-    # unevaluated
-    # det_paths = [imm_cp_bl, imm_cp_immortal, imm_cp_occlu_0, imm_cp_occlu_1, imm_cp_occlu_2, imm_2_bl, imm_immortal]
     
     # imm 3d test
     imm_bl_3d = '/data/itri_output/tracking_output/output/clustering/merge_detector/v3_map/frame_num_2/2020-09-11-17-37-12_4/260_16735/baseline_even_clustering_likelihood_pda/3d_state_2d_asso_ordinary_q_'
@@ -1592,20 +1583,46 @@ if __name__ == "__main__":
     # only pda
     cp_imm_pda = '/data/itri_output/tracking_output/output/clustering/centerpoint/2020-09-11-17-37-12_1/imm/occlusion_only_pda_no_track'
     cluster_imm_pda = '/data/itri_output/tracking_output/output/clustering/merge_detector/v3_map/frame_num_2/2020-09-11-17-37-12_1/occlusion_only_pda_no_track'
-    det_paths = [cp_imm_pda, cluster_imm_pda]
-    # all_det_paths = '/data/itri_output/tracking_output/output/clustering/centerpoint/2020-09-11-17-37-12_1/imm/occlusion/ClipHeight_2m/original_q'
-    # # all_det_paths = '/data/itri_output/tracking_output/output/clustering/merge_detector/v3_map/frame_num_2/2020-09-11-17-37-12_1/track_lifespan_no_occlusion_w_merge/result'
+
+    
+    # -----
+    # record occlude grid
+    # imm_cluster = '/data/itri_output/tracking_output/output/clustering/merge_detector/v3_map/frame_num_2/2020-09-11-17-37-12_4/260_16735/occlusion_fun_mMinPt0_mOccupiedTh0.3_mAngResol1/result/occlusion_fun_base9.5_outputall/occluded_grid_record'
+    # imm_cp = '/data/itri_output/tracking_output/output/clustering/centerpoint/2020-09-11-17-37-12_4/frame_2/Minit_4/imm/occlusion/with ground filter/base9.5/occluded_grid_record'
+    # det_paths = [imm_cp]
+
+    # imm_cluster = '/data/itri_output/tracking_output/output/clustering/merge_detector/v3_map/frame_num_2/2020-09-11-17-31-33_9/113_5275_preprocessing/occlusion_fun_mMinPt0_mOccupiedTh0.3_mAngResol1/test_uncertainty_3.5/result/occlusion_fun_base6/occluded_grid_record'
+    # imm_cp = '/data/itri_output/tracking_output/output/clustering/centerpoint/2020-09-11-17-31-33_9/frame_2/imm/occlusion/with groundf/base6/occluded_grid_record'
+    # det_paths = [imm_cluster, imm_cp]
+
+    # imm_cluster = '/data/itri_output/tracking_output/output/clustering/merge_detector/v3_map/frame_num_2/2020-09-11-17-37-12_1/occlusion/ClipHeight_2m/original_q/9.5/occluded_grid_record'
+    # imm_cp = '/data/itri_output/tracking_output/output/clustering/centerpoint/2020-09-11-17-37-12_1/imm/occlusion/ClipHeight_2m/original_q/9.5/occluded_grid_record'
+    # det_paths = [imm_cluster, imm_cp]
+
+    # ------
+
+    # ablation
+    # det_paths = []
+    # all_det_paths = '/data/itri_output/tracking_output/output/clustering/merge_detector/v3_map/frame_num_2/2020-09-11-17-37-12_4/270_16607_preprocessing/occlusion_fun_mMinPt0_mOccupiedTh0.3_mAngResol1/test_uncertainty_3.5/occlu_pda_lifetime/linear_result'
+    # # # all_det_paths = '/data/itri_output/tracking_output/output/clustering/centerpoint/2020-09-11-17-37-12_1/imm/occlusion/ClipHeight_2m/original_q'
+    # # # # all_det_paths = '/data/itri_output/tracking_output/output/clustering/merge_detector/v3_map/frame_num_2/2020-09-11-17-37-12_1/track_lifespan_no_occlusion_w_merge/result'
     # files_list = sorted(os.listdir(all_det_paths))
     # for f in files_list:
     #     det_paths.append(os.path.join(all_det_paths, f))
 
 
-    # all_det_paths = '/data/itri_output/tracking_output/output/clustering/merge_detector/v3_map/frame_num_2/2020-09-11-17-31-33_9/113_5275_preprocessing/occlusion_fun_mMinPt0_mOccupiedTh0.3_mAngResol1/test_uncertainty_3.5/result'
+    # test_clustering_occlusion = '/data/itri_output/tracking_output/output/clustering/centerpoint/2020-09-11-17-37-12_4/frame_2/Minit_4/imm/occlusion/with ground filter/no_pda_result/occlusion_fun_base9.5_outputall'
+    # det_paths = [test_clustering_occlusion]
+
+    # all_det_paths = '/data/itri_output/tracking_output/output/clustering/centerpoint/2020-09-11-17-31-33_9/frame_2/imm/occlusion/with groundf/no_pda_result'
     # # all_det_paths = '/data/itri_output/tracking_output/output/clustering/merge_detector/v3_map/frame_num_2/2020-09-11-17-37-12_4/270_16607_preprocessing/occlusion_fun_mMinPt0_mOccupiedTh0.3_mAngResol1/test_uncertainty_3.5/occlu_pda_lifetime/result'
     # files_list = sorted(os.listdir(all_det_paths))
     # for f in files_list:
     #     det_paths.append(os.path.join(all_det_paths, f))
 
+    # pda_cp = '/data/itri_output/tracking_output/output/clustering/centerpoint/2020-09-11-17-37-12_1/imm/occlusion/ClipHeight_2m/original_q/only_pda_result'
+    # pda_cluster = '/data/itri_output/tracking_output/output/clustering/merge_detector/v3_map/frame_num_2/2020-09-11-17-37-12_1/occlusion/ClipHeight_2m/original_q/only_pda_result'
+    # det_paths = [pda_cp, pda_cluster]
     
     # track lifetime comparison
     # det_path = "/data/itri_output/tracking_output/output/track_lifespan_no_occlusion_w_merge/unprocessed"
@@ -1618,6 +1635,13 @@ if __name__ == "__main__":
     #     print(f)
     #     dets = load_det(os.path.join(det_path, f), is_centerpoint)
     #     dets_all.append(dets)
+
+    # linear
+    # imm_cluster = '/data/itri_output/tracking_output/output/clustering/merge_detector/v3_map/frame_num_2/2020-09-11-17-37-12_1/occlusion/ClipHeight_2m/original_q/linear_T/2.5'
+    # imm_cp = '/data/itri_output/tracking_output/output/clustering/centerpoint/2020-09-11-17-37-12_1/imm/occlusion/ClipHeight_2m/original_q/linear_T/2.5'
+    imm_cp = '/data/itri_output/tracking_output/output/clustering/centerpoint/2020-09-11-17-37-12_4/frame_2/Minit_4/imm/occlusion/with ground filter/linear_T/2.5'
+    imm_cluster = '/data/itri_output/tracking_output/output/clustering/merge_detector/v3_map/frame_num_2/2020-09-11-17-37-12_4/260_16735/occlusion_fun_mMinPt0_mOccupiedTh0.3_mAngResol1/linear_T/2.5'
+    det_paths = [imm_cluster, imm_cp]
 
     dets_all = []
     is_centerpoint = False

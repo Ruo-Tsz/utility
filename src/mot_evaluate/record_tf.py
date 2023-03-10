@@ -11,8 +11,8 @@ import os
 
 
 bags_path = '/data/itri_output/tracking_output/bags/intersection_bags/'
-bag_path = bags_path + '2020-09-11-17-37-12_4.bag'
-out_path = '/data/itri_output/tracking_output/tf_localization/2020-09-11-17-37-12_4_2.json'
+bag_path = bags_path + '2020-09-11-17-37-12_1.bag'
+out_path = '/data/itri_output/tracking_output/tf_localization/2020-09-11-17-37-12_1.json'
 
 # baselink_to_v = [x, y, z, w]
 bl_v_qua = [0.000, 0.000, -0.013, 1.000]
