@@ -18,6 +18,11 @@ from std_msgs.msg import Header
 result_path = '/data/itri_output/tracking_output/output/clustering/merge_detector/2022-04-18_01-35-24'
 result_path = '/data/itri_output/tracking_output/output/clustering/merge_detector/v2/2022-04-18_04-23-25'
 viz_segment = '2020-09-11-17-37-12_4'
+rospy.set_param('use_sim_time', False)
+play_rate = rospy.get_param('play_rate', 1)
+shut_down = False
+block = False
+show_2D = True
 
 gt = {}
 det = {}
@@ -26,7 +31,6 @@ fp_hyp = {}
 gt_stamp = []
 scans_dict = {}
 
-block = False
 
 # mydata = raw_input('Prompt :')
 # print (mydata)
@@ -116,14 +120,14 @@ def create_pc(pc, header):
 
 def interrupt():
     global block
-    while not rospy.is_shutdown(): 
-        # raw input would block and keep waiting for input
+    while not shut_down: 
+        # raw input would block and keep waiting(stall) for input
         raw_input('press any key to pause or resume:\n')
         block = not block
         print('pause' if block else 'resume')
 
-    print('End interrupt')
-    sys.exit()
+    print('shut_down')
+
 
 if __name__ == "__main__":    
     rospy.init_node("visualize_node", anonymous=True)
@@ -187,5 +191,6 @@ if __name__ == "__main__":
             
             rate.sleep()
 
+    shut_down = True
     print('Out loop, thread.is_alive: {}, enter any key to stop program thread'.format(thread.is_alive()))
     
