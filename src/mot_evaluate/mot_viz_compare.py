@@ -1710,7 +1710,30 @@ if __name__ == "__main__":
     mPubGTBoxes = rospy.Publisher('gt_box', BoundingBoxArray, queue_size=100)
     mPubFNBoxes = rospy.Publisher('fn_box', BoundingBoxArray, queue_size=100)
     mPubFPBoxes = rospy.Publisher('fp_box', BoundingBoxArray, queue_size=100)
+    mPubSWBoxes = rospy.Publisher('idsw_box', BoundingBoxArray, queue_size=100)
+    mPubFragGTBoxes = rospy.Publisher('frag_gt_box', BoundingBoxArray, queue_size=100)
+    mPubFragDETBoxes = rospy.Publisher('frag_det_box', BoundingBoxArray, queue_size=100)
+    mPubOverSegGTBoxes = rospy.Publisher('overseg_gt_box', BoundingBoxArray, queue_size=100)
+    mPubOverSegDetBoxes = rospy.Publisher('overseg_det_box', BoundingBoxArray, queue_size=100)
+    mPubSWId = rospy.Publisher('idsw_hypo_id', MarkerArray, queue_size=100)
     mPubScans = rospy.Publisher('velodyne_points', PointCloud2, queue_size=100)
+    mPubID = rospy.Publisher('ids', MarkerArray, queue_size=100)
+    mPubOccludedGT = rospy.Publisher('occluded_gt_box', BoundingBoxArray, queue_size=100)
+    mPubFragTraj = rospy.Publisher('frag_traj', MarkerArray, queue_size=100)  
+    mPubTraj = rospy.Publisher('traj', MarkerArray, queue_size=100)
+    mPubTraj2 = rospy.Publisher('traj_2', MarkerArray, queue_size=100)
+    mPubFocusBoxes = rospy.Publisher('focus_box', BoundingBoxArray, queue_size=100)
+
+    mPubDiffDetFragBoxes_1 = rospy.Publisher('frag_diff_det1_box', BoundingBoxArray, queue_size=100)
+    mPubDiffDetFragBoxes_2 = rospy.Publisher('frag_diff_det2_box', BoundingBoxArray, queue_size=100)
+    mPbuDiffGtFragBoxes = rospy.Publisher('frag_diff_gt_box', BoundingBoxArray, queue_size=100)
+    mPubOccludedMarker = rospy.Publisher('occluded_marker', Marker, queue_size=100)
+
+    mPubDiffDetIDSWBoxes_1 = rospy.Publisher('sw_diff_det1_box', BoundingBoxArray, queue_size=100)
+    mPubDiffDetIDSWBoxes_2 = rospy.Publisher('sw_diff_det2_box', BoundingBoxArray, queue_size=100)
+    mPbuDiffGtIDSWBoxes = rospy.Publisher('sw_diff_gt_box', BoundingBoxArray, queue_size=100)
+
+    mPubRoadlines = rospy.Publisher('roadlines', MarkerArray, queue_size=100)
     
     gt = load_result(os.path.join(result_path, 'gt.json'))
     det = load_result(os.path.join(result_path, 'det.json'))
@@ -1720,6 +1743,8 @@ if __name__ == "__main__":
 
     gt_stamp = sorted(list(gt.keys())) 
     scans_dict = load_pc(os.path.join('/data/itri_output/tracking_output', 'pointcloud/2020-09-11-17-37-12', viz_segment))
+    mPubFNBoxes2 = rospy.Publisher('fn_box_2', BoundingBoxArray, queue_size=100)
+    mPubFPBoxes2 = rospy.Publisher('fp_box_2', BoundingBoxArray, queue_size=100)
 
     header = Header()
     header.frame_id = 'velodyne'
