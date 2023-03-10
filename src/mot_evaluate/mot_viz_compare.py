@@ -12,12 +12,20 @@ import sensor_msgs.point_cloud2 as pcl2
 from sensor_msgs.msg import PointCloud2, PointField
 import numpy as np
 from std_msgs.msg import Header
+import cv2
 
 # follow the original result structure
 # 'PATH_TO_ROOT_DIR_OF_RESULT/kuang-fu-rd/2020-09-11-17-31-33'
 result_path = '/data/itri_output/tracking_output/output/clustering/merge_detector/2022-04-18_01-35-24'
 result_path = '/data/itri_output/tracking_output/output/clustering/merge_detector/v2/2022-04-18_04-23-25'
 viz_segment = '2020-09-11-17-37-12_4'
+# set resolution to image, scale mRangeResol to pixel_scale times, 1 pixel = 1/pixel_scale = 0.15 m
+pixel_resol = 0.15
+pixel_resol = 0.05
+pixel_scale = 1/pixel_resol
+img_size = 900
+img = np.full((img_size, img_size, 3), 255, np.uint8)
+
 rospy.set_param('use_sim_time', False)
 play_rate = rospy.get_param('play_rate', 1)
 shut_down = False
@@ -129,6 +137,142 @@ def interrupt():
     print('shut_down')
 
 
+def viz_frag(all_gt, all_det, stamp, tp_id_history, frag_id):
+    '''
+        viz frag line in image
+    '''
+    global img
+    frag_id_list = [int(id) for id in frag_id.keys() if frag_id[id]['frag_num'] > 0]
+
+    trajectories = []
+    duration_time = 1
+    for idx, obj in enumerate(all_gt[stamp]):
+        if  obj['id'] not in frag_id_list:
+            continue
+        if not (obj['id'] == 5 or obj['id'] == 2):
+            continue
+
+        during_frag = False
+        for m in frag_id[str(obj['id'])]['happened']:
+            if (abs(int(stamp) - int(m))/1e9 < duration_time and int(stamp) <= int(m)) or \
+                (abs(int(stamp) - int(m))/1e9 < duration_time and int(stamp) > int(m)):
+                during_frag = True
+                break
+        if not during_frag:
+            continue
+
+        # draw all gt tras and obj tras during duration_time
+        gt_trajectory = []
+        det_trajectory = {}
+        # iterate frame to get duration times
+        for f, gts in all_gt.items():
+            if abs(int(f)-int(stamp))/10**9 > duration_time:
+                continue
+
+            # search corresponding gt loc
+            gt_track = {}
+            for gt in gts:
+                if int(gt['id']) != int(obj['id']):
+                    continue
+                else:
+                    gt_track = gt
+                    break
+
+            if not bool(gt_track):
+                continue
+
+            l = gt_track['track']['box']['length']
+            w = gt_track['track']['box']['width']
+            lengths = [l/2, -l/2, -l/2, l/2]
+            widths = [w/2, w/2, -w/2, -w/2]
+            corners_img_coor = []
+
+            for idx, pt in enumerate(lengths):
+                corner = np.array([lengths[idx], widths[idx], 0, 1])
+
+                T_m = transformations.quaternion_matrix(
+                    np.array([
+                        gt_track['track']['rotation']['x'],
+                        gt_track['track']['rotation']['y'],
+                        gt_track['track']['rotation']['z'],
+                        gt_track['track']['rotation']['w']]))
+            
+                T_m[0, 3] = gt_track['track']['translation']['x']
+                T_m[1, 3] = gt_track['track']['translation']['y']
+                T_m[2, 3] = gt_track['track']['translation']['z']
+
+                ego_pose = T_m.dot(corner)
+                # img_pose = [-ego_pose[1]*pixel_scale+(img_size/2), -ego_pose[0]*pixel_scale+(img_size/2)]
+                img_pose = [-ego_pose[1]*pixel_scale+(img_size/2), -ego_pose[0]*pixel_scale+(img_size)]
+                corners_img_coor.append(img_pose)
+
+            color = (0, 0, 255)
+            if int(obj['id']) % 4 == 1:
+                color = (0, 255, 255)
+            elif int(obj['id']) % 4 == 2:
+                color = (255, 0, 0)
+
+            for idx, pt in enumerate(corners_img_coor):
+                cv2.line(img, (int(corners_img_coor[idx%len(corners_img_coor)][0]), int(corners_img_coor[idx%len(corners_img_coor)][1])), (int(corners_img_coor[(idx+1)%len(corners_img_coor)][0]), int(corners_img_coor[(idx+1)%len(corners_img_coor)][1])), color, 1)
+
+
+            # center_img_coord = [
+            #     -gt_track['track']['translation']['y']*pixel_scale+(img_size/2),
+            #     -gt_track['track']['translation']['x']*pixel_scale+(img_size/2)]
+            center_img_coord = [
+                -gt_track['track']['translation']['y']*pixel_scale+(img_size/2),
+                -gt_track['track']['translation']['x']*pixel_scale+(img_size)]
+            
+            gt_trajectory.append(center_img_coord)
+
+
+            # get tp during duration
+            tp_det_id = tp_id_history[str(obj['id'])]['id'][str(f)]
+            if not np.isnan(tp_det_id):
+                if not det_trajectory.has_key(tp_det_id):
+                    det_trajectory[tp_det_id] = []
+                
+                # get tp det loc
+                for i, d in enumerate(all_det[str(f)]):
+                    if int(d['id']) != tp_det_id:
+                        continue
+                    else:
+                        # center_det_img_coord = [
+                        #     -d['track']['translation']['y']*pixel_scale+(img_size/2),
+                        #     -d['track']['translation']['x']*pixel_scale+(img_size/2)]  
+                        center_det_img_coord = [
+                            -d['track']['translation']['y']*pixel_scale+(img_size/2),
+                            -d['track']['translation']['x']*pixel_scale+(img_size)]  
+
+                        det_trajectory[tp_det_id].append(center_det_img_coord)
+                        break
+
+        
+        # drawing gt gt_trajectory during frag duration
+        for idx, pt in enumerate(gt_trajectory):
+            cv2.circle(img, (int(gt_trajectory[idx%len(gt_trajectory)][0]), int(gt_trajectory[idx%len(gt_trajectory)][1])), 3, (0, 0, 255), -1)
+            if idx == len(gt_trajectory) - 1:
+                break
+            cv2.line(img, (int(gt_trajectory[idx%len(gt_trajectory)][0]), int(gt_trajectory[idx%len(gt_trajectory)][1])), (int(gt_trajectory[(idx+1)%len(gt_trajectory)][0]), int(gt_trajectory[(idx+1)%len(gt_trajectory)][1])), (0, 255, 0), 3)
+
+        # plot fragmented gt as circle where tp_det_id = nan
+
+        # drawing tp det trajectories
+        for tp, tras in det_trajectory.items():
+            color = (0, 0, 255)
+            if tp % 4 == 1:
+                color = (0, 255, 255)
+            elif tp % 4 == 2:
+                color = (255, 0, 0)
+
+            for j, pt in enumerate(tras):
+                if j == len(tras) - 1:
+                    break
+                cv2.line(img, (int(tras[j%len(tras)][0]), int(tras[j%len(tras)][1])), (int(tras[(j+1)%len(tras)][0]), int(tras[(j+1)%len(tras)][1])), color, 3)
+
+    cv2.imshow('Frag', img)
+    cv2.waitKey(10)
+
 if __name__ == "__main__":    
     rospy.init_node("visualize_node", anonymous=True)
     mPubBoxes = rospy.Publisher('result_box', BoundingBoxArray, queue_size=100)
@@ -177,6 +321,9 @@ if __name__ == "__main__":
             fn_boxes_msg = create_boxes_msg(fn_dict, header)
             fp_boxes_msg = create_boxes_msg(fp_dict, header)
             pc_msg = create_pc(scans_dict[str(int(stamp))], header)
+            # cv2 fragemented ones
+            img = np.full((img_size, img_size, 3), 255, np.uint8)
+            # viz_frag(gt, det, stamp, tp_id_history, frag)
 
             while block:
                 # print('now block..')
