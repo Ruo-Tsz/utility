@@ -1,4 +1,5 @@
 #! /usr/bin/python2
+from __future__ import division
 import json
 import os
 import copy
@@ -28,7 +29,7 @@ gt_data = {}
 # close_to_bottom = 0.01
 close_to_bottom = 0.0
 
-output_file = "occluded_gt.json"
+output_file = "occluded_gt_v2.json"
 
 id_list = []
 
@@ -172,7 +173,7 @@ def filter_box_without_point(gts, scenes_file):
     # for anno in gts['tracks']:
     total_counter = 0
     original_num = 0
-    for scan, tracks in gts.items():
+    for scan, tracks in sorted(gts.items()):
         original_num += len(tracks)
         scan_counter = 0
         out_gts_data[scan] = []
@@ -224,12 +225,21 @@ def filter_box_without_point(gts, scenes_file):
     print(occluded_id_list.keys())
 
 
+    # split into segment of complete occlusion
+    id_occlusion_his = findOcclusionSeg(occluded_id_list, all_pc)
+
+    # check average length over largest lenght of each gt
+    max_length, ave_length = lengthOcclusion(id_occlusion_his)
+
+
     details ={
         "trajectory_num": len(id_list),
         "occluded_trajectory_num": len(occluded_id_list),
         "gt_num": original_num,
         "occluded_num": total_counter,
-        "occluded_time": occluded_id_list}
+        "occluded_time": occluded_id_list,
+        "occluded_segments": id_occlusion_his,
+        "occlusion_length": {"ave_length": ave_length, "max_length": max_length}}
     # output = {"meta:", "details": details}
     # details["occluded_id"].append(occluded_id_list)
 
@@ -237,6 +247,93 @@ def filter_box_without_point(gts, scenes_file):
         json.dump(details, outFile, indent = 4)
 
     return out_gts_data
+
+def findOcclusionSeg(occluded_id_list, all_pc):
+
+    id_occlusion_his_all = {}
+
+    sorted_all_pc = sorted(all_pc)
+
+    for id, ts in occluded_id_list.items():
+        sort_t = sorted(ts)
+
+        id_longest = False
+        id_occlusion_length = -1
+        id_occlusion_his = {}
+        
+        idx = 0
+        while idx != len(sort_t):
+            search_idx = idx
+            # append interval btw (index-1) and index of existing timestamp
+            index = np.searchsorted(np.array(sorted_all_pc), sort_t[idx])
+            search_index = index
+            assert sort_t[idx] == sorted_all_pc[index], 'ghost timestamp in gt, {}'.format(sort_t[idx])
+
+            # register single shot
+            if len(sort_t) < 2:
+                id_occlusion_his.update({index: [sort_t[idx]]})
+                break
+
+            # continue search, (search_idx - 1) would be last matched occluded timestamp
+            while checkNextElement(sort_t[search_idx], sorted_all_pc[search_index]):
+                search_idx += 1
+                search_index += 1
+
+                if search_idx == len(sort_t) or search_index == len(sorted_all_pc):
+                    break
+
+            # register single shot
+            id_occlusion_length = search_idx - idx
+            if id_occlusion_length == 1:
+                id_occlusion_his.update({index: [sort_t[idx:search_idx]]})
+                idx = search_idx
+                continue
+            
+            # print('find {} at {}'.format(sort_t[idx], index))
+            # print('end at {}'.format(sort_t[search_idx-1]))
+            # print('all_scan: ')
+            # print(sorted_all_pc[index:search_index])
+
+            # using initial index of initial timestamp in all pointcloud as key_id (not meaningful) 
+            id_occlusion_his.update({index: sort_t[idx:search_idx]})
+            # print(id_occlusion_his)
+
+            idx = search_idx
+
+        id_occlusion_his_all.update({id: id_occlusion_his})
+  
+    return id_occlusion_his_all           
+                
+def checkNextElement(a, b):
+    return a == b
+
+def lengthOcclusion(id_occlusion_his):
+    '''
+        return 
+        1. average of MAX length of each occluded gt
+        2. Max length among all gt
+    '''
+
+    all_max = -1
+    ave_length = 0
+    id_max_length = {}
+    for id, segs in id_occlusion_his.items():
+        max_l = -1
+        for seg_id, seg_list in segs.items():
+            max_l = len(seg_list) if len(seg_list) > max_l else max_l
+
+        id_max_length.update({id: max_l})
+
+    for id, l in id_max_length.items():
+        ave_length += l
+        all_max = l if l > all_max else all_max
+    
+    ave_length /= len(id_occlusion_his)
+    print(id_max_length)
+    print('ave_length: {}'.format(ave_length))
+    print('max length among all: {}'.format(all_max))
+
+    return all_max, ave_length
 
 
 if __name__ == "__main__":
