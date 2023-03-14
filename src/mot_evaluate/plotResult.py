@@ -605,7 +605,15 @@ def plot_y_MOTA_IDF1_boken_y(scenes, MOTA, IDF1):
 
 if __name__ == '__main__':
     files = sorted(os.listdir(file_path))
-    scenes = [float(f.split('_')[0]) for f in files]
+    # track_lifespan_no_occlusion_w_merge
+    # scenes = [float(f.split('_')[0]) for f in files]
+    # occlusion_fun w different base
+    scenes = sorted([float(f.split('_')[2][4:]) for f in files])
+
+    print(scenes)
+
+    # track_lifespan_no_occlusion_w_merge
+    # scenes = [s for s in scenes if float(s) <= 4.0]
 
     MOTA = []
     MOTP = []
@@ -625,9 +633,45 @@ if __name__ == '__main__':
     NUM_GT = []
     NUM_TRAs = []
 
+    # occlusion_fun w different base
+    files.sort(key=lambda f:float(f.split('_')[2][4:]))
+    # track_lifespan_no_occlusion_w_merge
+    # files.sort(key=lambda f:float(f.split('_')[0]))
+    # files.sort(key=lambda f:float(f[4:]))
     for f in files:
+        print(f)
         metrics = {}
-        with open(os.path.join(file_path, f, 'metrics.json'), "r") as m:
+        # print(os.listdir(os.path.join(file_path, f)))
+
+        # track_lifespan_no_occlusion_w_merge
+        # if float(f.split('_')[0]) > 4.0:
+        #     continue
+        
+        for dir in os.listdir(os.path.join(file_path, f)): 
+            # if float(f.split('_')[0]) <= 2.0:
+            #     try:
+            #         dir.split('_')[3]
+            #     except IndexError:
+            #         print('Skip')  
+            #         continue
+
+
+
+            if dir == 'old':
+                continue
+            
+            # linear 
+            if os.path.isdir(os.path.join(file_path, f, dir)): 
+                metric_dir_name = dir
+                break
+            # non-linear newest 2020-09-11-17-37-12_4
+            # if dir.split('-')[2][:2] == '13' or dir.split('-')[2][:2] == '14': 
+            # # if dir.split('-')[2][:2] == '07': 
+            #     metric_dir_name = dir
+            #     break
+        
+        print(metric_dir_name)
+        with open(os.path.join(file_path, f, metric_dir_name, 'metrics.json'), "r") as m:
             metrics = json.load(m)
 
         MOTA.append(float(metrics['mota']))
