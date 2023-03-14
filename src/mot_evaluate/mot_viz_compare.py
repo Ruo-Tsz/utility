@@ -1738,11 +1738,31 @@ if __name__ == "__main__":
     gt = load_result(os.path.join(result_path, 'gt.json'))
     det = load_result(os.path.join(result_path, 'det.json'))
     fn_gt, fp_hyp = load_details(os.path.join(result_path, 'details.json'))
+    id_switch = load_result(os.path.join(result_path, 'switch_list.json'))
+    frag = load_result(os.path.join(result_path, 'frag.json'))
+    tp_id_history = load_result(os.path.join(result_path, 'tp_id_history.json'))
+    over_seg = load_result(os.path.join(result_path, 'over_seg.json'))
+    stamped_over_seg = reconfirue_file(gt, over_seg)
+    
+    # id_switch_gt = getStampedSwitch(gt, id_switch)
+    post_id_switch = getSwitchDuration(id_switch)
 
     print('load: {} det and {} gt'.format(len(det.keys()), len(gt.keys())))
 
     gt_stamp = sorted(list(gt.keys())) 
-    scans_dict = load_pc(os.path.join('/data/itri_output/tracking_output', 'pointcloud/2020-09-11-17-37-12', viz_segment))
+    scans_dict = load_pc(os.path.join('/data/itri_output/tracking_output/pointcloud/no_ego_compensated/2020-09-11-17-37-12', viz_segment))
+    # scans_dict = load_pc(os.path.join('/data/itri_output/tracking_output/kuang-fu-rd_livox_public/ego compensation/kuang-fu-rd_v3/2020-09-11-17-31-33/pointcloud', viz_segment))
+    # scans_dict = load_pc(os.path.join('/data/itri_output/tracking_output/pointcloud/ego_compensated/2020-09-11-17-37-12', viz_segment+'_all'))
+
+    # det 2
+    det_2 = load_result(os.path.join(result_path_2, 'det.json'))
+    fn_gt_2, fp_hyp_2 = load_details(os.path.join(result_path_2, 'details.json'))
+    frag_2 = load_result(os.path.join(result_path_2, 'frag.json'))
+    tp_id_history_2 = load_result(os.path.join(result_path_2, 'tp_id_history.json'))
+    id_switch_2 = load_result(os.path.join(result_path_2, 'switch_list.json'))
+
+    post_id_switch_2 = getSwitchDuration(id_switch_2)
+
     mPubFNBoxes2 = rospy.Publisher('fn_box_2', BoundingBoxArray, queue_size=100)
     mPubFPBoxes2 = rospy.Publisher('fp_box_2', BoundingBoxArray, queue_size=100)
 
@@ -1754,20 +1774,31 @@ if __name__ == "__main__":
     thread.start()
 
     while not rospy.is_shutdown():
-        rate = rospy.Rate(1) 
-        for stamp in gt_stamp:
+        rate = rospy.Rate(play_rate) 
+        gt_frag_traj = {}
+        # iterate all scan
+        for stamp in sorted(scans_dict.keys()):
+            start = time.time()
             if rospy.is_shutdown():
                 break
 
-            # pub based on gt stamp
-            if str(int(stamp)) not in scans_dict.keys():
+            if str(int(stamp)) not in gt_stamp:
                 print('skip at ', int(stamp))
+                rate.sleep()
                 continue
 
+            # try:
+            #     if tf_data.has_key(stamp):
+            #         # print(tf_data[stamp])
+            #         transformSemanticMap(sub_map, tf_data[stamp], mPubRoadlines)
+            # except:
+            #     print('')
+
             header.stamp.secs = int(int(stamp) / 1e9)
-            header.stamp.nsecs= int(stamp) % 1e9
+            header.stamp.nsecs= round(int(stamp) % 1e9 /1e3) * 1e3
 
             objs_dict = det[stamp] if det.has_key(stamp) else []
+            objs_dict_2 = det_2[stamp] if det_2.has_key(stamp) else []
             gt_dict = gt[stamp]
             fn_dict = fn_gt[stamp] if fn_gt.has_key(stamp) else []
             fp_dict = fp_hyp[stamp] if fp_hyp.has_key(stamp) else []
@@ -1777,23 +1808,79 @@ if __name__ == "__main__":
             fn_boxes_msg, fn_id_msg = create_boxes_msg(fn_dict, header, 'fn')
             fp_boxes_msg, fp_id_msg = create_boxes_msg(fp_dict, header, 'fp')
             pc_msg = create_pc(scans_dict[str(int(stamp))], header)
+            sw_gt_boxes_msg, hypo_id_msg =  create_sw_msg(gt_dict, stamp, post_id_switch)
+            frag_gt_msg, frag_det_msg, frag_tra_msg =  create_frag_msg(gt_dict, objs_dict, stamp, tp_id_history, frag)
+            over_seg_gt_msg, over_seg_det_msg = create_over_msg(gt_dict, stamped_over_seg, stamp)
+            occluded_gt_msg, occluded_gt_id_msg = create_occluded_boxes(gt_dict, header)
+            tra_msg, focus_box =  create_tra_msg(gt_dict, objs_dict, stamp, tp_id_history)
+
             # cv2 fragemented ones
             img = np.full((img_size, img_size, 3), 255, np.uint8)
             # viz_frag(gt, det, stamp, tp_id_history, frag)
+            # only create frag msg for difference (frag - frag2)
+            frag_diff_det1_msg, frag_diff_det2_msg, frag_diff_gt_markers, occluded_marker = frag_diff(gt_dict, objs_dict, frag, tp_id_history, objs_dict_2, frag_2, tp_id_history_2, stamp)                                                                                                 
+            # sw_diff_det1_msg, sw_diff_det2_msg, sw_diff_gt_msgs = sw_diff(gt_dict, stamp, objs_dict, post_id_switch, objs_dict_2, post_id_switch_2)
+
+            id_msg = MarkerArray()
+            id_msg.markers += det_id_msg.markers
+            id_msg.markers += gt_id_msg.markers
+            id_msg.markers += fn_id_msg.markers
+            id_msg.markers += fp_id_msg.markers
+            id_msg.markers += occluded_gt_id_msg.markers
+
+            # det 2
+            fn_dict_2 = fn_gt_2[stamp] if fn_gt_2.has_key(stamp) else []
+            fp_dict_2 = fp_hyp_2[stamp] if fp_hyp_2.has_key(stamp) else []
+            fn_boxes_msg_2, fn_id_msg_2 = create_boxes_msg(fn_dict_2, header, 'fn_2')
+            fp_boxes_msg_2, fp_id_msg_2 = create_boxes_msg(fp_dict_2, header, 'fp_2')
+            # tra_msg_2, focus_box_2 =  create_tra_msg(gt_dict, objs_dict_2, stamp, tp_id_history_2)
 
             while block:
                 # print('now block..')
                 pass
 
-            print('create det: {}; gt: {}'.format(len(det_boxes_msg.boxes), len(gt_boxes_msg.boxes)))
-            mPubBoxes.publish(det_boxes_msg)
+            print('{}: create det: {}; gt: {}'.format(stamp, len(det_boxes_msg.boxes), len(gt_boxes_msg.boxes)))
             mPubGTBoxes.publish(gt_boxes_msg)
+            mPubBoxes.publish(det_boxes_msg)
             mPubScans.publish(pc_msg)
             mPubFNBoxes.publish(fn_boxes_msg)
             mPubFPBoxes.publish(fp_boxes_msg)
-            
-            rate.sleep()
+            mPubSWBoxes.publish(sw_gt_boxes_msg)
+            mPubFragGTBoxes.publish(frag_gt_msg)
+            mPubFragDETBoxes.publish(frag_det_msg)
+            mPubOverSegGTBoxes.publish(over_seg_gt_msg)
+            mPubOverSegDetBoxes.publish(over_seg_det_msg)
+            mPubSWId.publish(hypo_id_msg)
+            mPubID.publish(id_msg)
+            mPubOccludedGT.publish(occluded_gt_msg)
+            mPubFragTraj.publish(frag_tra_msg)
+            mPubTraj.publish(tra_msg)
+            # mPubTraj2.publish(tra_msg_2)
+            mPubFocusBoxes.publish(focus_box)
 
+            # pub diff frag
+            mPubDiffDetFragBoxes_1.publish(frag_diff_det1_msg)
+            mPubDiffDetFragBoxes_2.publish(frag_diff_det2_msg)
+            mPbuDiffGtFragBoxes.publish(frag_diff_gt_markers)
+
+            mPubOccludedMarker.publish(occluded_marker)
+
+            # pub diff idsw
+            # mPubDiffDetIDSWBoxes_1.publish(sw_diff_det1_msg)
+            # mPubDiffDetIDSWBoxes_2.publish(sw_diff_det2_msg)
+            # mPbuDiffGtIDSWBoxes.publish(sw_diff_gt_msgs)
+
+            # det 2
+            mPubFNBoxes2.publish(fn_boxes_msg_2)
+            mPubFPBoxes2.publish(fp_boxes_msg_2)
+            rate.sleep()
+            time.sleep(1/play_rate)
+            end = time.time()
+            print(format(end-start))
+
+        print('Restart')
+        break
+        time.sleep(1)
     shut_down = True
     print('Out loop, thread.is_alive: {}, enter any key to stop program thread'.format(thread.is_alive()))
     
