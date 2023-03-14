@@ -19,13 +19,13 @@ figure_path = '/data/itri_output/tracking_output/output/track_lifespan_no_occlus
 def output_result(scenes, MOTA, MOTP, TP, FP, FN, Pre, Rec, F1, Frag, IDSW, IDF1, MT, ML, Over_Seg, LOST_GT, NUM_GT, NUM_TRAs):
     output_file = os.path.join(file_path, 'overall_metric.csv')
     titles = ['scenes','mota', 'motp [m]', 'recall', 'precision', 'F1-socre', 'IDSW', 'FP', 
-                            'FN', 'over-seg', 'Frag', 'IDF1', 'lost_trajectory', 'MT', 'ML', 'gt_num', 'object_num']
+                            'FN', 'over-seg', 'Frag', 'IDF1', 'lost_trajectory', 'MT', 'ML', 'gt_num', 'object_num', 'TP']
     with open(output_file, 'wb') as csvfile:
         writer = csv.writer(csvfile)
         writer.writerow(titles)
         for idx, f in enumerate(scenes):
             one = [scenes[idx], MOTA[idx], MOTP[idx], Rec[idx],
-                    Pre[idx], F1[idx], IDSW[idx], FP[idx], FN[idx], Over_Seg[idx], Frag[idx], IDF1[idx], LOST_GT[idx], MT[idx], ML[idx], NUM_GT[idx], NUM_TRAs[idx]]
+                    Pre[idx], F1[idx], IDSW[idx], FP[idx], FN[idx], Over_Seg[idx], Frag[idx], IDF1[idx], LOST_GT[idx], MT[idx], ML[idx], NUM_GT[idx], NUM_TRAs[idx], TP[idx]]
             
             assert len(titles) == len(one)
             writer.writerow(one)
@@ -71,6 +71,8 @@ def double_y_pd(scenes, MOTA, IDF1, IDSW, Frag):
     margin = 0.5
     ticks_size = 16
     labels_size = 18
+    y_1_min = min(df["IDF1"].min(), df["MOTA"].min())-5
+    y_1_max = max(df["IDF1"].max(), df["MOTA"].max())+5
     fig = plt.figure()
     ax = df['IDF1'].plot(marker='o', c='b', linewidth=3, label='IDF1', zorder=0)
     ax = df['MOTA'].plot(marker='o', c='r', linewidth=3, label='MOTA', zorder=1)
@@ -80,8 +82,16 @@ def double_y_pd(scenes, MOTA, IDF1, IDSW, Frag):
     ax.set_yticklabels(ax.get_yticks(), rotation=0, fontsize=ticks_size)
     # set value prcision(no decimal point)
     ax.yaxis.set_major_formatter(FormatStrFormatter('%.0f'))
+    # set y frequency to 2
+    ax.set_yticks(np.arange(y_1_min, y_1_max, 2))
+    ax.set_ylim(y_1_min, y_1_max)
+    ax.grid(True)
     ax.legend(loc='upper left')
+    # ax.set_xlabel("Base A", fontsize=18)
+    ax.set_xlabel("Duration [sec]", fontsize=18)
 
+    y_2_min = 0
+    y_2_max = 1.2*max(df["IDSW"].max(), df["Frag"].max())
     ax2 = ax.twinx()
     df['IDSW'].plot(kind="bar", alpha=0.6, color='lightblue', position=0, width=width,label='IDSW')
     df['Frag'].plot(kind="bar", alpha=0.6, color='yellowgreen', position=1, width=width, label='Frag')
@@ -90,35 +100,48 @@ def double_y_pd(scenes, MOTA, IDF1, IDSW, Frag):
     ax2.set_yticklabels(ax2.get_yticks(), rotation=0, fontsize=ticks_size)
     ax2.yaxis.set_major_formatter(FormatStrFormatter('%.0f'))
 
-    ax.set_xlabel("Life of Tracks [sec]", fontsize=18)
-    ax.set_ylim(0,1.2*max(df["IDF1"].max(), df["MOTA"].max()))
-    ax2.set_ylim(0,1.2*max(df["IDSW"].max(), df["Frag"].max()))
     ax2.set_xlim(-margin, len(scenes)-1+margin)
-    ax2.grid(True)
+    ax2.set_ylim(y_2_min, y_2_max)
+    # ax2.grid(True)
     ax2.legend(loc='upper right')
 
-    plt.title("MOTA.IDF1.IDSW.FRAG - Lifetime", fontsize=22) 
+    # plt.title("MOTA.IDF1.IDSW.FRAG - Base A", fontsize=22) 
+    # plt.title("MOTA.IDF1.IDSW.FRAG - Duration", fontsize=22) 
+    plt.title("MOTA.IDF1-Duration", fontsize=22) 
     plt.show()
-    # fig.savefig(os.path.join(figure_path, 'MOTA,IDF1,IDSW,FRAG_Lifetime_2.jpg'))
+    fig.savefig(os.path.join(figure_path, 'MOTA,IDF1_Duration_seg_4.jpg'))
 
 def plot_num_bar_plot(scenes, FP, FN, IDSW):
     labels = np.array([str(s) for s in scenes])
     width = 0.3
     margin = 1
-    ticks_size = 16
-    labels_size = 18
+    ticks_size = 25
+    labels_size = 30
     x = np.arange(len(scenes))
-    fig = plt.figure()
+    fig, ax = plt.subplots()
     plt.bar(x+width, IDSW, width=width, color='yellow', label ='IDSW', align='center')
     plt.bar(x, FP, width=width, color='lightblue', label ='FP', align='center')
     plt.bar(x-width, FN, width=width, color='yellowgreen', label ='FN', align='center')
-    plt.legend(loc='upper left')
-    plt.xlabel("Life of Tracks [sec]", fontsize=labels_size)
+    plt.legend(loc='upper right', fontsize=ticks_size)
+    # plt.xlabel("Base A", fontsize=labels_size)
+    # occlusion linear
+    plt.xlabel('Linear A', color='black', fontsize=labels_size)
+    # plt.xlabel("A_max (sec)", fontsize=labels_size)
     plt.ylabel("Number", color="black", fontsize=labels_size)
-    plt.title("FP.FN.IDSW - Lifetime", fontsize=22)
+    # plt.title("FP.FN.IDSW - Base A", fontsize=22)
+    # plt.title("FP.FN.IDSW - Duration", fontsize=22)
     plt.xlim(-margin, len(scenes)-1+margin)
-    plt.xticks(x, labels, fontsize=ticks_size)
+    # plt.xticks(x, labels, fontsize=18)
+    # occlusion linear
+    plt.xticks(x, labels, fontsize=14)
+
+    start, end = ax.get_xlim()
+    # ax.xaxis.set_ticks(np.arange(start, end+0.1, 0.5))
     plt.yticks(fontsize=ticks_size)
+    ax.grid(axis='y', linewidth=1, linestyle='-', c='gray', alpha=0.7)
+    plt.show()
+    fig.savefig(os.path.join(figure_path, 'FP,FN,IDSW_Duration.jpg'))
+
 
 def compare_mota_idf1(scenes, MOTA, IDF1, MOTA_2, IDF1_2):
     '''
