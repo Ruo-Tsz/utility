@@ -695,8 +695,20 @@ if __name__ == '__main__':
     # output
     # output_result(scenes, MOTA, MOTP, TP, FP, FN, Pre, Rec, F1, Frag, IDSW, IDF1, MT, ML, Over_Seg, LOST_GT, NUM_GT, NUM_TRAs)
 
-    # not clear for line plot
-    # double_y(MOTA, IDF1, IDSW, Frag)
+    # # bar and line plot
+    # double_y_pd(scenes, MOTA, IDF1, IDSW, Frag)
+
+    # plot lines
+    # plot_y_MOTA_IDF1(scenes, MOTA, IDF1)
+
+    # plot bold lines, iros
+    plot_y_MOTA_IDF1_bolder(scenes, MOTA, IDF1)
+
+    # plot_y_MOTA_IDF1_boken_y(scenes, MOTA, IDF1)
+
+    # # plot FP FN IDSW NUM BAR PLOT
+    # plot_num_bar_plot(scenes, FP, FN, IDSW)
+
 
     # bar and line plot
     double_y_pd(scenes, MOTA, IDF1, IDSW, Frag)
