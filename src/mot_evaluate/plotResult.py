@@ -710,10 +710,187 @@ if __name__ == '__main__':
     # plot_num_bar_plot(scenes, FP, FN, IDSW)
 
 
-    # bar and line plot
-    double_y_pd(scenes, MOTA, IDF1, IDSW, Frag)
+    # comparison btw 2 datas mota and idf1
+    # test2
+    # file_path_2 = '/data/itri_output/tracking_output/output/clustering/merge_detector/v3_map/frame_num_2/2020-09-11-17-37-12_4/270_16607_preprocessing/track_lifespan_no_occlusion_w_merge/likelihood/test_uncertainty_3.5/result'
+    # file_path_2 = '/data/itri_output/tracking_output/output/clustering/merge_detector/v3_map/frame_num_2/2020-09-11-17-31-33_9/113_5275_preprocessing/track_lifespan_no_occlusion_w_merge/likelihood/test_uncertainty_3.5/result'
+    # lovox
+    # file_path_2 ='/data/itri_output/tracking_output/output/clustering/livox_baseline/fixed_lifetime'
+    # files = sorted(os.listdir(file_path_2))
+    # occlusion_fun w different base
+    # scenes_2 = sorted([float(f.split('_')[2][4:]) for f in files])
+    '''
+    file_path_2 = '/data/itri_output/tracking_output/output/clustering/merge_detector/v3_map/frame_num_2/2020-09-11-17-37-12_4/270_16607_preprocessing/track_lifespan_no_occlusion_w_merge/likelihood/test_uncertainty_3.5/result'
+    # track_lifespan_no_occlusion_w_merge
+    files = sorted(os.listdir(file_path_2))
+    scenes_2 = sorted([float(f.split('_')[0]) for f in files])
 
-    # plot FP FN IDSW NUM BAR PLOT
-    plot_num_bar_plot(scenes, FP, FN, IDSW)
+    # livox
+    # scenes_2 = sorted([float(f) for f in files])
+
+    # only show below 2.0
+    scenes_2 = [s for s in scenes_2 if float(s) <= 4.0]
+
+    print(scenes_2)
+
+    MOTA_2 = []
+    MOTP_2 = []
+    TP_2 = []
+    FP_2 = []
+    FN_2 = []
+    Pre_2 = []
+    Rec_2 = []
+    F1_2 = []
+    Frag_2 = []
+    IDSW_2 = []
+    IDF1_2 = []
+    MT_2 = []
+    ML_2 = []
+    Over_Seg_2 = []
+    LOST_GT_2 = []
+    NUM_GT_2 = []
+    NUM_TRAs_2 = []
+
+    files.sort(key=lambda f:float(f.split('_')[0]))
+    # files.sort(key=lambda f:float(f.split('_')[2][4:]))
+    # livox
+    # files.sort(key=lambda f:float(f))
+    for f in files:
+        print(f)
+        metrics = {}
+        # print(os.listdir(os.path.join(file_path_2, f)))
+
+        # only show below 2.0
+        if float(f.split('_')[0]) > 4.0:
+            continue
+
+        for dir in os.listdir(os.path.join(file_path_2, f)): 
+            # try:
+            #     dir.split('_')[3]
+            #     print('Get target')  
+                
+            # except IndexError:
+            #     print('Skip')  
+            #     continue
+
+            # if float(f.split('_')[0]) <= 2.0:
+            #     try:
+            #         dir.split('_')[3]
+            #     except IndexError:
+            #         print('Skip')  
+            #         continue
+
+            # if os.path.isdir(os.path.join(file_path_2, f, dir)): 
+            #     metric_dir_name = dir
+            #     break
+            if dir == 'old':
+                continue
+            if dir.split('-')[2][:2] == '13': 
+            # 09
+            # if dir.split('-')[2][:2] == '07': 
+                metric_dir_name = dir
+                break
+
+
+        # old one
+        with open(os.path.join(file_path_2, f, metric_dir_name, 'metrics.json'), "r") as m:
+            metrics = json.load(m)
+
+        # newer one
+        # for dir in os.listdir(os.path.join(file_path_2, f)): 
+        #     if os.path.isdir(os.path.join(file_path_2, f, dir)): 
+        #         metric_dir_name = dir
+        #         break
+        # print(metric_dir_name)
+        # with open(os.path.join(file_path_2, f, metric_dir_name, 'metrics.json'), "r") as m:
+        #     metrics = json.load(m)
+
+
+        MOTA_2.append(float(metrics['mota']))
+        MOTP_2.append(metrics['motp'])
+        TP_2.append(metrics['TP'])
+        FP_2.append(metrics['FP'])
+        FN_2.append(metrics['FN'])
+        Pre_2.append(metrics['precision'])
+        Rec_2.append(metrics['recall'])
+        F1_2.append(metrics['F1-socre'])
+        Frag_2.append(int(metrics['Frag']))
+        IDSW_2.append(int(metrics['IDSW']))
+        IDF1_2.append(float(metrics['IDF1']))
+        MT_2.append(metrics['MT'])
+        ML_2.append(metrics['ML'])
+        Over_Seg_2.append(metrics['over-seg'])
+        LOST_GT_2.append(metrics['lost_trajectory'])
+        NUM_GT_2.append(metrics['gt_num'])
+        NUM_TRAs_2.append(metrics['trajectory_num'])
+
+
+    # compare line plot in same base
+    # compare_mota_idf1(scenes_2, MOTA, IDF1, MOTA_2, IDF1_2)
+
+
+    # plot scatter of mota and idfi
+    # only plot above baseline(0.3)
+    # plot_mota_idf1_scatter(scenes, MOTA, IDF1, scenes_2[2:], MOTA_2[2:], IDF1_2[2:], plot_compared_baseline=True)
+    plot_mota_idf1_scatter(scenes, MOTA, IDF1, scenes_2, MOTA_2, IDF1_2)
+    # livox
+    # plot_mota_idf1_scatter(scenes, MOTA, IDF1, scenes_2, MOTA_2, IDF1_2, plot_compared_baseline=True)
+    '''
+    '''
+    # test 3 
+    path = '/data/itri_output/tracking_output/output/clustering/merge_detector/v3_map/frame_num_2/2020-09-11-17-37-12_4/270_16607_preprocessing/occlusion_fun_mMinPt0_mOccupiedTh0.3_mAngResol1/test_uncertainty_3.5/occlu_pda_lifetime/ablation_study/result'
+    files = sorted(os.listdir(path))
+
+    lifetimes = set()
+    bases = set()
+    # {'lifetime1':[f1, f2..], 'lifetime2': [f3, f4...]}
+    file_p = {}
+
+    for f in files:
+        life_t = f.split('_')[2]
+        b = f.split('_')[4]
+        lifetimes.add(life_t)
+        bases.add(float(b))
+        if not file_p.has_key(life_t):
+            file_p[life_t] = []
+        
+        file_p[life_t].append(str(f))
+        print(f)
+        print(type(f))
+        # file_p[life_t] = sorted([float(ff.split('_')[4]) for ff in file_p[life_t]])
+        file_p[life_t].sort(key=lambda f:float(f.split('_')[4]))
+
+
+    print('t_min lifetime: {}'.format(lifetimes))
+    print('Bases: {}'.format(bases))
+
+    motas = []
+    idf1s = []
+    scenes = []
+
+    for lifetime, fs in file_p.items():
+        mota = []
+        idf1 = []
+        for file in fs:
+            metrics = {}
+            # with open(os.path.join(path, file), 'r') as inFile:
+            for dir in os.listdir(os.path.join(path, file)): 
+                if os.path.isdir(os.path.join(path, file, dir)): 
+                    metric_dir_name = dir
+                    break
+
+            with open(os.path.join(path, file, metric_dir_name, 'metrics.json'), "r") as m:
+                metrics = json.load(m)
+
+            mota.append(float(metrics['mota']))
+            idf1.append(float(metrics['IDF1']))
+        
+        motas.append(mota)
+        idf1s.append(idf1)
+        scenes.append(lifetime)
+            
+    plot_mota_idf1(scenes, motas, idf1s, list(bases), path)
+    '''
+
 
 
