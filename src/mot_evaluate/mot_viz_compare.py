@@ -1,5 +1,9 @@
 #! /usr/bin/python2
-# It's for visualizing the tracking result of kuang-fu rd
+'''
+    It's for visualizing the tracking result of kuang-fu rd
+    Get evaluation meta files by mot_evaluate.py, and visulize according issue in Rviz.
+'''
+
 import rospy
 import json
 import os, sys
@@ -1705,7 +1709,55 @@ def transformSemanticMap(sub_map, tf_data, pub):
 
 
 if __name__ == "__main__":    
-    rospy.init_node("visualize_node", anonymous=True)
+    rospy.init_node("visualize_node", anonymous=True)                                                                   
+    # merge_detector
+    result_path_2 = rospy.get_param('result_path_2','/data/itri_output/tracking_output/output/track_lifespan_no_occlusion_w_merge/result/1.0_5m')
+    # baseline M dist
+    result_path_2 = rospy.get_param('result_path_2', '/data/itri_output/tracking_output/output/clustering/merge_detector/v3_map/frame_num_2/2020-09-11-17-37-12_4/270_16607_preprocessing/baseline_even_clustering_Mdist_pda/test_uncertainty_3.5/2022-07-29_18-38-16_5m')
+    # baseline likelihood
+    result_path_2 = rospy.get_param('reuslt_path_2', '/data/itri_output/tracking_output/output/clustering/merge_detector/v3_map/frame_num_2/2020-09-11-17-37-12_4/270_16607_preprocessing/baseline_even_clustering_likelihood_pda/test_uncertainty_3.5/2022-07-28_19-04-53_5m_only_matched_filter_gt')
+    
+    # set segment here
+    viz_segment = rospy.get_param('viz_segment', '2020-09-11-17-37-12_4')
+    # viz_segment = rospy.get_param('viz_segment', '2020-09-11-17-31-33_9')
+    # viz_segment = rospy.get_param('viz_segment', '2020-09-11-17-37-12_1')
+    
+    # base 9.5
+    # result_path = rospy.get_param('result_path', '/data/itri_output/tracking_output/output/clustering/merge_detector/v3_map/frame_num_2/2020-09-11-17-37-12_4/270_16607_preprocessing/occlusion_fun_mMinPt0_mOccupiedTh0.3_mAngResol1/test_uncertainty_3.5/occlu_pda_lifetime/result/occlusion_fun_base9.5_outputall/2022-08-06_10-21-13_5m')
+    # result_path = rospy.get_param('result_path', '/data/itri_output/tracking_output/output/clustering/merge_detector/v3_map/frame_num_2/2020-09-11-17-37-12_4/270_16607_preprocessing/occlusion_fun_mMinPt0_mOccupiedTh0.3_mAngResol1/test_uncertainty_3.5/occlu_pda_lifetime/object mapping result/occlusion_fun_base9.5_outputall/2022-08-10_15-41-19_5m')
+    # result_path = rospy.get_param('result_path', '/data/itri_output/tracking_output/output/clustering/merge_detector/v3_map/frame_num_2/2020-09-11-17-37-12_4/260_16735/occlusion_fun_mMinPt0_mOccupiedTh0.3_mAngResol1/result/occlusion_fun_base9.5_outputall/2022-08-13_07-17-25_5m_final')
+    result_path = rospy.get_param('result_path', '/data/itri_output/tracking_output/output/clustering/merge_detector/v3_map/frame_num_2/2020-09-11-17-37-12_4/260_16735/occlusion_fun_mMinPt0_mOccupiedTh0.3_mAngResol1/result/occlusion_fun_base9.5_outputall/visulization/2022-10-28_17-37-15_5m')
+    result_path = rospy.get_param('result_path', '/data/itri_output/tracking_output/output/clustering/centerpoint/2020-09-11-17-37-12_4/frame_2/Minit_4/imm/occlusion/with ground filter/base9.5/visulization/2022-10-28_21-26-41_5m')
+    result_path = rospy.get_param('result_path', '/data/itri_output/tracking_output/output/clustering/centerpoint/2020-09-11-17-37-12_4/frame_2/Minit_4/imm/immortal/2022-08-18_12-43-04_5m')
+
+    # livox baseline
+    # result_path = rospy.get_param('result_path_2','/data/itri_output/tracking_output/output/clustering/livox_baseline/2022-08-13_18-28-21_5m')
+    
+    # ----------------
+    # occluded part
+    # likelihood clustering bl cluster seg 4
+    # result_path_2 = rospy.get_param('result_path_2', '/data/itri_output/tracking_output/output/clustering/merge_detector/v3_map/frame_num_2/2020-09-11-17-37-12_4/260_16735/baseline_even_clustering_likelihood_pda/2022-08-13_06-43-43_5m')
+    # result_path = rospy.get_param('result_path', '/data/itri_output/tracking_output/output/clustering/merge_detector/v3_map/frame_num_2/2020-09-11-17-37-12_4/260_16735/occlusion_fun_mMinPt0_mOccupiedTh0.3_mAngResol1/result/occlusion_fun_base9.5_outputall/occluded_grid_record/2022-11-12_16-43-43_5m')
+
+    # cp seg 4
+    # result_path = rospy.get_param('result_path', '/data/itri_output/tracking_output/output/clustering/centerpoint/2020-09-11-17-37-12_4/frame_2/Minit_4/imm/occlusion/with ground filter/base9.5/occluded_grid_record/2022-11-12_17-36-41_5m')
+    # result_path_2 = rospy.get_param('result_path_2', '/data/itri_output/tracking_output/output/clustering/centerpoint/2020-09-11-17-37-12_4/frame_2/Minit_4/imm/baseline/2022-08-18_12-04-23_5m')
+
+    # # cp seg 6
+    # result_path = rospy.get_param('result_path', '/data/itri_output/tracking_output/output/clustering/centerpoint/2020-09-11-17-31-33_9/frame_2/imm/occlusion/with groundf/base6/occluded_grid_record/2022-11-12_18-48-02_5m')
+    # result_path_2 = rospy.get_param('result_path_2', '/data/itri_output/tracking_output/output/clustering/centerpoint/2020-09-11-17-31-33_9/frame_2/imm/baseline/2022-08-22_02-07-11_5m')
+    # cluster seg 6
+    # result_path = rospy.get_param('result_path', '/data/itri_output/tracking_output/output/clustering/merge_detector/v3_map/frame_num_2/2020-09-11-17-31-33_9/113_5275_preprocessing/occlusion_fun_mMinPt0_mOccupiedTh0.3_mAngResol1/test_uncertainty_3.5/result/occlusion_fun_base6/occluded_grid_record/2022-11-12_18-47-03_5m')
+    # result_path_2 = rospy.get_param('result_path_2', '/data/itri_output/tracking_output/output/clustering/merge_detector/v3_map/frame_num_2/2020-09-11-17-31-33_9/113_5275_preprocessing/baseline_even_clustering_likelihood_pda/test_uncertainty_3.5/2022-08-22_02-09-10_5m')
+
+    # cluster seg 1
+    # result_path = rospy.get_param('result_path', '/data/itri_output/tracking_output/output/clustering/merge_detector/v3_map/frame_num_2/2020-09-11-17-37-12_1/occlusion/ClipHeight_2m/original_q/9.5/occluded_grid_record/2022-11-12_17-58-17_5m')
+    # result_path_2 = rospy.get_param('result_path', '/data/itri_output/tracking_output/output/clustering/merge_detector/v3_map/frame_num_2/2020-09-11-17-37-12_1/baseline/2022-09-03_06-24-28_5m')
+    # cp seg 1
+    # result_path = rospy.get_param('result_path', '/data/itri_output/tracking_output/output/clustering/centerpoint/2020-09-11-17-37-12_1/imm/occlusion/ClipHeight_2m/original_q/9.5/occluded_grid_record/2022-11-12_18-04-30_5m')
+    # result_path_2 = rospy.get_param('result_path', '/data/itri_output/tracking_output/output/clustering/centerpoint/2020-09-11-17-37-12_1/imm/baseline/2022-09-03_05-56-05_5m')
+    # ------------------
+
     mPubBoxes = rospy.Publisher('result_box', BoundingBoxArray, queue_size=100)
     mPubGTBoxes = rospy.Publisher('gt_box', BoundingBoxArray, queue_size=100)
     mPubFNBoxes = rospy.Publisher('fn_box', BoundingBoxArray, queue_size=100)
