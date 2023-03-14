@@ -13,8 +13,28 @@ import pandas as pd
 '''
 
 				
-file_path = '/data/itri_output/tracking_output/output/track_lifespan_no_occlusion_w_merge/result'
-figure_path = '/data/itri_output/tracking_output/output/track_lifespan_no_occlusion_w_merge/figure'
+file_path = '/data/itri_output/tracking_output/output/clustering/merge_detector/v3_map/frame_num_2/2020-09-11-17-37-12_4/270_16607_preprocessing/occlusion_fun_mMinPt0_mOccupiedTh0.3_mAngResol1/test_uncertainty_3.5/occlu_pda_lifetime/result'
+# file_path = '/data/itri_output/tracking_output/output/clustering/merge_detector/v3_map/frame_num_2/2020-09-11-17-37-12_4/270_16607_preprocessing/track_lifespan_no_occlusion_w_merge/likelihood/test_uncertainty_3.5/result'
+# file_path = '/data/itri_output/tracking_output/output/clustering/livox_baseline/occlusion_idx/result'
+# file_path = '/data/itri_output/tracking_output/output/clustering/merge_detector/v3_map/frame_num_2/2020-09-11-17-37-12_4/270_16607_preprocessing/track_lifespan_no_occlusion_w_merge/likelihood/test_uncertainty_3.5/result'
+# file_path = '/data/itri_output/tracking_output/output/clustering/merge_detector/v3_map/frame_num_2/2020-09-11-17-31-33_9/113_5275_preprocessing/occlusion_fun_mMinPt0_mOccupiedTh0.3_mAngResol1/test_uncertainty_3.5/result'
+# figure_path ='/data/itri_output/tracking_output/output/clustering/merge_detector/v3_map/frame_num_2/270_16615/occlusion_fun_mMinPt0_mOccupiedTh0.3_mAngResol1/test_uncertainty_3.5/figure'
+# 2020-09-11-17-37-12_4 paper
+# figure_path = '/data/itri_output/tracking_output/output/clustering/merge_detector/v3_map/frame_num_2/2020-09-11-17-37-12_4/270_16607_preprocessing/track_lifespan_no_occlusion_w_merge/likelihood/test_uncertainty_3.5/figure/0813_newest/paper/official/iros'
+figure_path = '/data/itri_output/tracking_output/output/clustering/merge_detector/v3_map/frame_num_2/2020-09-11-17-37-12_4/270_16607_preprocessing/occlusion_fun_mMinPt0_mOccupiedTh0.3_mAngResol1/test_uncertainty_3.5/occlu_pda_lifetime/figure/0813/paper/iros'
+
+# linear
+file_path = '/data/itri_output/tracking_output/output/clustering/merge_detector/v3_map/frame_num_2/2020-09-11-17-37-12_4/270_16607_preprocessing/occlusion_fun_mMinPt0_mOccupiedTh0.3_mAngResol1/test_uncertainty_3.5/occlu_pda_lifetime/linear_result'
+figure_path = '/data/itri_output/tracking_output/output/clustering/merge_detector/v3_map/frame_num_2/2020-09-11-17-37-12_4/270_16607_preprocessing/occlusion_fun_mMinPt0_mOccupiedTh0.3_mAngResol1/test_uncertainty_3.5/occlu_pda_lifetime/linear_figure/iros'
+
+# figure_path = '/data/itri_output/tracking_output/output/clustering/livox_baseline/occlusion_idx/figure'
+# figure_path = '/data/itri_output/tracking_output/output/clustering/merge_detector/v3_map/frame_num_2/2020-09-11-17-37-12_4/270_16607_preprocessing/track_lifespan_no_occlusion_w_merge/likelihood/test_uncertainty_3.5/figure'
+# figure_path = '/data/itri_output/tracking_output/output/clustering/merge_detector/v3_map/frame_num_2/2020-09-11-17-31-33_9/113_5275_preprocessing/occlusion_fun_mMinPt0_mOccupiedTh0.3_mAngResol1/test_uncertainty_3.5/figure'
+
+# # 2020-09-11-17-37-12_1
+# file_path = '/data/itri_output/tracking_output/output/clustering/merge_detector/v3_map/frame_num_2/2020-09-11-17-37-12_1/track_lifespan_no_occlusion_w_merge/result'
+# figure_path = '/data/itri_output/tracking_output/output/clustering/merge_detector/v3_map/frame_num_2/2020-09-11-17-37-12_1/track_lifespan_no_occlusion_w_merge/figure'
+
 
 def output_result(scenes, MOTA, MOTP, TP, FP, FN, Pre, Rec, F1, Frag, IDSW, IDF1, MT, ML, Over_Seg, LOST_GT, NUM_GT, NUM_TRAs):
     output_file = os.path.join(file_path, 'overall_metric.csv')
