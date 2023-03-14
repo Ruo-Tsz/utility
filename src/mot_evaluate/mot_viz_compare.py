@@ -1766,6 +1766,17 @@ if __name__ == "__main__":
     mPubFNBoxes2 = rospy.Publisher('fn_box_2', BoundingBoxArray, queue_size=100)
     mPubFPBoxes2 = rospy.Publisher('fp_box_2', BoundingBoxArray, queue_size=100)
 
+    tf_path = os.path.join('/data/itri_output/tracking_output/tf_localization', viz_segment+'.json')
+    with open (tf_path, mode='r') as f:
+        tf_data = json.load(f)
+
+    try:
+        map_path = os.path.join(result_path, 'sub_map.json')
+        with open (map_path, mode='r') as f:
+            sub_map = json.load(f)
+    except:
+        print('No sub map provided')
+
     header = Header()
     header.frame_id = 'velodyne'
 
